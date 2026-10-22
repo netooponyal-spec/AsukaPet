@@ -1,0 +1,45 @@
+
+name: Convert FBX to GLB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download FBX
+        run: |
+          curl -L --fail \
+            "https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-model1/Rem.-.Sketchfab.Test.fbx" \
+            -o rem.fbx
+
+      - name: Convert FBX to GLB
+        run: |
+          mkdir -p output
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            node:20-bookworm \
+            bash -lc '
+              apt-get update &&
+              apt-get install -y curl unzip &&
+              npm init -y &&
+              npm install fbx2gltf &&
+              node -e "
+                const convert = require(\"fbx2gltf\");
+                convert(\"/work/rem.fbx\", \"/work/output/rem.glb\")
+                  .then(p => console.log(\"Converted:\", p))
+                  .catch(e => { console.error(e); process.exit(1); });
+              "
+            '
+
+      - name: Upload GLB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rem-glb
+          path: output/rem.glb
+          
