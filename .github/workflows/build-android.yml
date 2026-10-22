@@ -27,17 +27,49 @@ jobs:
           mkdir -p android-app
           unzip -o AsukaPet-Android-AI-Starter.zip -d android-app
 
+      - name: Find project directory
+        run: |
+          echo "Looking for Gradle project..."
+          find android-app -maxdepth 6 -type f \
+            \( -name settings.gradle -o -name settings.gradle.kts \) -print
+
+          SETTINGS_FILE=$(find android-app -maxdepth 6 -type f \
+            \( -name settings.gradle -o -name settings.gradle.kts \) \
+            -print -quit)
+
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "::error::Gradle settings file not found in ZIP"
+            find android-app -maxdepth 4 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Found project: $PROJECT_DIR"
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Build APK
-        run: gradle -p android-app assembleDebug
+        run: gradle -p "$PROJECT_DIR" assembleDebug
+
+      - name: Prepare APK
+        run: |
+          APK=$(find "$PROJECT_DIR" -type f \
+            -path '*/outputs/apk/debug/app-debug.apk' -print -quit)
+
+          if [ -z "$APK" ]; then
+            echo "::error::APK was not produced"
+            exit 1
+          fi
+
+          cp "$APK" Rem-Android-APK.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Rem-Android-APK
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          path: Rem-Android-APK.apk
           
