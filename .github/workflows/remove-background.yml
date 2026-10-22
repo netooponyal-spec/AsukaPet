@@ -1,0 +1,56 @@
+
+name: Remove Background from Rem
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  remove-background:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download original model
+        run: |
+          curl -L --fail --retry 3 \
+            "https://github.com/netooponyal-spec/AsukaPet/releases/download/Ram/rem.glb" \
+            -o rem.glb
+
+      - name: Remove background meshes
+        run: |
+          npm init -y
+          npm install @gltf-transform/core @gltf-transform/functions
+          cat > remove-background.mjs <<'EOF'
+          import fs from 'node:fs';
+          import { NodeIO } from '@gltf-transform/core';
+
+          const io = new NodeIO();
+          const document = await io.read('rem.glb');
+          const root = document.getRoot();
+
+          for (const node of [...root.listNodes()]) {
+            const mesh = node.getMesh();
+            if (!mesh) continue;
+
+            const name = `${node.getName()} ${mesh.getName()}`.toLowerCase();
+
+            if (name.includes('bg ') || name.startsWith('bg')) {
+              console.log('Removing background:', node.getName(), mesh.getName());
+              node.setMesh(null);
+            }
+          }
+
+          await io.write('rem-no-background.glb', document);
+          console.log('Saved rem-no-background.glb');
+          EOF
+
+          node remove-background.mjs
+
+      - name: Upload model
+        uses: actions/upload-artifact@v4
+        with:
+          name: rem-no-background
+          path: rem-no-background.glb
+          compression-level: 0
