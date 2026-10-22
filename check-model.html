@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Проверка 3D-модели Аски</title>
+  <title>Аска — 3D тест</title>
 
   <style>
     * {
@@ -20,45 +19,96 @@
     }
 
     h2 {
-      font-size: 22px;
+      margin-top: 0;
     }
 
     #status {
-      overflow-wrap: anywhere;
       line-height: 1.5;
+      overflow-wrap: anywhere;
       color: #b9e5ff;
     }
 
     #view {
       width: 100%;
-      height: 68vh;
+      height: 70vh;
       display: block;
-      border-radius: 12px;
       background: #292929;
+      border-radius: 12px;
+      touch-action: none;
+    }
+
+    #controls {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 8px;
+      background: #333;
+      color: white;
+      font-size: 15px;
+    }
+
+    button:active {
+      background: #555;
     }
   </style>
 </head>
 
 <body>
-  <h2>Проверка 3D-модели Аски</h2>
-  <p id="status">Запуск...</p>
+
+  <h2>Аска — 3D тест</h2>
+
+  <p id="status">
+    Запуск...
+  </p>
+
   <canvas id="view"></canvas>
 
-  <script type="module">
-    const status = document.getElementById('status');
-    const canvas = document.getElementById('view');
+  <div id="controls">
+    <button id="play">▶ Анимация</button>
+    <button id="stop">■ Стоп</button>
+    <button id="reset">↻ Сброс</button>
+  </div>
 
-    // Модель Аски на Hugging Face
+  <script type="module">
+
+    const status =
+      document.getElementById('status');
+
+    const canvas =
+      document.getElementById('view');
+
+    const playButton =
+      document.getElementById('play');
+
+    const stopButton =
+      document.getElementById('stop');
+
+    const resetButton =
+      document.getElementById('reset');
+
+
+    // =====================================================
+    // МОДЕЛЬ АСКИ
+    // =====================================================
+
     const url =
       'https://huggingface.co/An9er/asuka-model/resolve/main/ip-evangelion__asuka-langley__concept__tpose%20(3).glb?download=true';
 
-    function showError(message) {
-      status.textContent = 'Ошибка: ' + message;
-      console.error(message);
-    }
+
+    // =====================================================
+    // THREE.JS
+    // =====================================================
 
     try {
-      status.textContent = 'Подключаем Three.js...';
+
+      status.textContent =
+        'Подключаем 3D-движок...';
 
       const THREE = await import(
         'https://esm.sh/three@0.170.0'
@@ -68,169 +118,498 @@
         'https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js'
       );
 
-      status.textContent = 'Проверяем WebGL...';
 
-      const renderer = new THREE.WebGLRenderer({
-        canvas: canvas,
-        antialias: true
-      });
+      // ===================================================
+      // СЦЕНА
+      // ===================================================
+
+      const scene =
+        new THREE.Scene();
+
+      scene.background =
+        new THREE.Color(0x292929);
+
+
+      // ===================================================
+      // КАМЕРА
+      // ===================================================
+
+      const camera =
+        new THREE.PerspectiveCamera(
+          35,
+          1,
+          0.01,
+          10000
+        );
+
+
+      // ===================================================
+      // RENDERER
+      // ===================================================
+
+      const renderer =
+        new THREE.WebGLRenderer({
+          canvas: canvas,
+          antialias: true
+        });
 
       renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, 2)
-      );
-
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x292929);
-
-      const camera = new THREE.PerspectiveCamera(
-        35, 1, 0.01, 10000
-      );
-
-      scene.add(
-        new THREE.HemisphereLight(
-          0xffffff, 0x555566, 2.2
+        Math.min(
+          window.devicePixelRatio || 1,
+          2
         )
       );
 
-      const light = new THREE.DirectionalLight(
-        0xffffff, 3
+
+      // ===================================================
+      // СВЕТ
+      // ===================================================
+
+      const hemi =
+        new THREE.HemisphereLight(
+          0xffffff,
+          0x555566,
+          2.2
+        );
+
+      scene.add(hemi);
+
+
+      const light =
+        new THREE.DirectionalLight(
+          0xffffff,
+          3
+        );
+
+      light.position.set(
+        4,
+        8,
+        6
       );
 
-      light.position.set(4, 8, 6);
       scene.add(light);
 
+
+      // ===================================================
+      // RESIZE
+      // ===================================================
+
       function resize() {
-        const width = canvas.clientWidth;
-        const height = canvas.clientHeight;
 
-        if (!width || !height) return;
+        const width =
+          canvas.clientWidth;
 
-        renderer.setSize(width, height, false);
+        const height =
+          canvas.clientHeight;
 
-        camera.aspect = width / height;
+        if (!width || !height)
+          return;
+
+        renderer.setSize(
+          width,
+          height,
+          false
+        );
+
+        camera.aspect =
+          width / height;
+
         camera.updateProjectionMatrix();
       }
 
-      window.addEventListener('resize', resize);
+
+      window.addEventListener(
+        'resize',
+        resize
+      );
+
       resize();
 
-      status.textContent = 'Загружаем модель Аски...';
 
-      const loader = new GLTFLoader();
+      // ===================================================
+      // ЗАГРУЗКА
+      // ===================================================
+
+      status.textContent =
+        'Загружаем Аску...';
+
+
+      const loader =
+        new GLTFLoader();
+
+
+      let model = null;
+      let mixer = null;
+      let actions = [];
+      let currentAction = null;
+
+      let clock =
+        new THREE.Clock();
+
 
       loader.load(
+
         url,
 
+
+        // ================================================
+        // УСПЕШНАЯ ЗАГРУЗКА
+        // ================================================
+
         (gltf) => {
-          const model = gltf.scene;
+
+          model =
+            gltf.scene;
+
           scene.add(model);
 
-          const bounds = new THREE.Box3()
-            .setFromObject(model);
 
-          const size = bounds.getSize(
-            new THREE.Vector3()
-          );
+          // ==============================================
+          // РАЗМЕР И ЦЕНТРИРОВАНИЕ
+          // ==============================================
 
-          const center = bounds.getCenter(
-            new THREE.Vector3()
-          );
+          const bounds =
+            new THREE.Box3()
+              .setFromObject(model);
 
-          const maxDim = Math.max(
-            size.x, size.y, size.z
-          );
-
-          if (
-            !Number.isFinite(maxDim) ||
-            maxDim <= 0
-          ) {
-            showError(
-              'Модель пустая или имеет неверные размеры.'
+          const size =
+            bounds.getSize(
+              new THREE.Vector3()
             );
-            return;
-          }
 
-          // Центрируем модель
-          model.position.sub(center);
+          const center =
+            bounds.getCenter(
+              new THREE.Vector3()
+            );
 
-          // Размещаем камеру так, чтобы модель была видна
-          const fov = THREE.MathUtils.degToRad(
-            camera.fov
+
+          const maxDim =
+            Math.max(
+              size.x,
+              size.y,
+              size.z
+            );
+
+
+          model.position.sub(
+            center
           );
+
+
+          // ==============================================
+          // КАМЕРА
+          // ==============================================
+
+          const fov =
+            THREE.MathUtils.degToRad(
+              camera.fov
+            );
+
 
           const distance =
             (maxDim / 2) /
-            Math.tan(fov / 2) * 1.5;
+            Math.tan(fov / 2) *
+            1.5;
+
 
           camera.position.set(
-            0, 0, distance
+            0,
+            0,
+            distance
           );
 
-          camera.near = Math.max(
-            maxDim / 1000, 0.001
-          );
 
-          camera.far = maxDim * 100;
-
-          camera.lookAt(0, 0, 0);
-          camera.updateProjectionMatrix();
-
-          status.textContent =
-            'Аска загружена! Размер: ' +
-            size.x.toFixed(2) + ' × ' +
-            size.y.toFixed(2) + ' × ' +
-            size.z.toFixed(2);
-
-          console.log(
-            'Модель успешно загружена:', gltf
-          );
-        },
-
-        (event) => {
-          if (event.total > 0) {
-            const percent = Math.round(
-              event.loaded / event.total * 100
+          camera.near =
+            Math.max(
+              maxDim / 1000,
+              0.001
             );
 
+
+          camera.far =
+            maxDim * 100;
+
+
+          camera.lookAt(
+            0,
+            0,
+            0
+          );
+
+
+          camera.updateProjectionMatrix();
+
+
+          // ==============================================
+          // АНИМАЦИИ
+          // ==============================================
+
+          if (
+            gltf.animations &&
+            gltf.animations.length > 0
+          ) {
+
+            mixer =
+              new THREE.AnimationMixer(
+                model
+              );
+
+
+            actions =
+              gltf.animations.map(
+                (clip) => {
+
+                  console.log(
+                    'Найдена анимация:',
+                    clip.name,
+                    'длительность:',
+                    clip.duration
+                  );
+
+                  return mixer.clipAction(
+                    clip
+                  );
+
+                }
+              );
+
+
+            // Первая анимация
+            // запускается автоматически
+
+            currentAction =
+              actions[0];
+
+            currentAction
+              .reset()
+              .play();
+
+
             status.textContent =
-              'Загрузка модели: ' + percent + '%';
+              'Аска загружена! ' +
+              'Найдено анимаций: ' +
+              gltf.animations.length;
+
           } else {
+
             status.textContent =
-              'Загружаем модель... ' +
-              (event.loaded / 1048576).toFixed(1) +
-              ' МБ получено';
+              'Аска загружена, но ' +
+              'в GLB нет встроенных анимаций.';
+
           }
+
+
+          console.log(
+            'GLTF:',
+            gltf
+          );
+
+          console.log(
+            'Анимации:',
+            gltf.animations
+          );
+
         },
 
+
+        // ================================================
+        // ПРОГРЕСС
+        // ================================================
+
+        (event) => {
+
+          if (event.total > 0) {
+
+            const percent =
+              Math.round(
+                event.loaded /
+                event.total *
+                100
+              );
+
+
+            status.textContent =
+              'Загрузка Аски: ' +
+              percent +
+              '%';
+
+          } else {
+
+            status.textContent =
+              'Загружаем Аску... ' +
+              (
+                event.loaded /
+                1048576
+              ).toFixed(1) +
+              ' МБ';
+
+          }
+
+        },
+
+
+        // ================================================
+        // ОШИБКА
+        // ================================================
+
         (error) => {
+
           console.error(
-            'Ошибка загрузки модели:', error
+            'GLB error:',
+            error
           );
 
-          showError(
-            'Не удалось прочитать GLB. ' +
-            'Проверь доступность файла, CORS и сеть. ' +
-            'Подробности: ' +
-            (error?.message || String(error))
-          );
+
+          status.textContent =
+            'Ошибка загрузки: ' +
+            (
+              error?.message ||
+              String(error)
+            );
+
         }
+
       );
 
+
+      // ===================================================
+      // КНОПКА PLAY
+      // ===================================================
+
+      playButton.onclick =
+        () => {
+
+          if (
+            actions.length === 0
+          ) {
+
+            status.textContent =
+              'В этой GLB нет анимаций.';
+
+            return;
+          }
+
+
+          if (
+            !currentAction
+          ) {
+
+            currentAction =
+              actions[0];
+
+          }
+
+
+          currentAction
+            .reset()
+            .play();
+
+
+          status.textContent =
+            'Анимация запущена ▶';
+
+        };
+
+
+      // ===================================================
+      // STOP
+      // ===================================================
+
+      stopButton.onclick =
+        () => {
+
+          if (
+            currentAction
+          ) {
+
+            currentAction.stop();
+
+          }
+
+
+          status.textContent =
+            'Анимация остановлена ■';
+
+        };
+
+
+      // ===================================================
+      // RESET
+      // ===================================================
+
+      resetButton.onclick =
+        () => {
+
+          if (
+            currentAction
+          ) {
+
+            currentAction.stop();
+
+            currentAction.reset();
+
+          }
+
+
+          status.textContent =
+            'Анимация сброшена ↻';
+
+        };
+
+
+      // ===================================================
+      // ОСНОВНОЙ ЦИКЛ
+      // ===================================================
+
       function animate() {
-        requestAnimationFrame(animate);
-        renderer.render(scene, camera);
+
+        requestAnimationFrame(
+          animate
+        );
+
+
+        const delta =
+          clock.getDelta();
+
+
+        if (mixer) {
+
+          mixer.update(
+            delta
+          );
+
+        }
+
+
+        renderer.render(
+          scene,
+          camera
+        );
+
       }
+
 
       animate();
 
-    } catch (error) {
-      console.error('Ошибка запуска:', error);
 
-      showError(
-        (error?.message || String(error)) +
-        '. Проверь интернет и поддержку WebGL.'
+    } catch (error) {
+
+      console.error(
+        'Ошибка запуска:',
+        error
       );
+
+
+      status.textContent =
+        'Ошибка: ' +
+        (
+          error?.message ||
+          String(error)
+        );
+
     }
+
   </script>
+
 </body>
 </html>
