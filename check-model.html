@@ -5,8 +5,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Проверка 3D-модели Аски</title>
+
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       margin: 0;
@@ -16,7 +19,9 @@
       font-family: sans-serif;
     }
 
-    h2 { font-size: 22px; }
+    h2 {
+      font-size: 22px;
+    }
 
     #status {
       overflow-wrap: anywhere;
@@ -33,6 +38,7 @@
     }
   </style>
 </head>
+
 <body>
   <h2>Проверка 3D-модели Аски</h2>
   <p id="status">Запуск...</p>
@@ -42,8 +48,9 @@
     const status = document.getElementById('status');
     const canvas = document.getElementById('view');
 
+    // Модель Аски на Hugging Face
     const url =
-      'https://github.com/netooponyal-spec/AsukaPet/releases/download/Asuka-model-v1/ip-evangelion__asuka-langley__concept__tpose.glb';
+      'https://huggingface.co/An9er/asuka-model/resolve/main/ip-evangelion__asuka-langley__concept__tpose%20(3).glb?download=true';
 
     function showError(message) {
       status.textContent = 'Ошибка: ' + message;
@@ -64,7 +71,7 @@
       status.textContent = 'Проверяем WebGL...';
 
       const renderer = new THREE.WebGLRenderer({
-        canvas,
+        canvas: canvas,
         antialias: true
       });
 
@@ -88,17 +95,19 @@
       const light = new THREE.DirectionalLight(
         0xffffff, 3
       );
+
       light.position.set(4, 8, 6);
       scene.add(light);
 
       function resize() {
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
 
-        if (!w || !h) return;
+        if (!width || !height) return;
 
-        renderer.setSize(w, h, false);
-        camera.aspect = w / h;
+        renderer.setSize(width, height, false);
+
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
       }
 
@@ -111,6 +120,7 @@
 
       loader.load(
         url,
+
         (gltf) => {
           const model = gltf.scene;
           scene.add(model);
@@ -126,28 +136,31 @@
             new THREE.Vector3()
           );
 
-          if (
-            !Number.isFinite(size.x) ||
-            !Number.isFinite(size.y) ||
-            !Number.isFinite(size.z) ||
-            Math.max(size.x, size.y, size.z) === 0
-          ) {
-            showError('Модель пустая или имеет неверные размеры.');
-            return;
-          }
-
-          model.position.sub(center);
-
           const maxDim = Math.max(
             size.x, size.y, size.z
           );
 
+          if (
+            !Number.isFinite(maxDim) ||
+            maxDim <= 0
+          ) {
+            showError(
+              'Модель пустая или имеет неверные размеры.'
+            );
+            return;
+          }
+
+          // Центрируем модель
+          model.position.sub(center);
+
+          // Размещаем камеру так, чтобы модель была видна
           const fov = THREE.MathUtils.degToRad(
             camera.fov
           );
 
           const distance =
-            (maxDim / 2) / Math.tan(fov / 2) * 1.35;
+            (maxDim / 2) /
+            Math.tan(fov / 2) * 1.5;
 
           camera.position.set(
             0, 0, distance
@@ -158,40 +171,45 @@
           );
 
           camera.far = maxDim * 100;
+
           camera.lookAt(0, 0, 0);
           camera.updateProjectionMatrix();
 
           status.textContent =
-            'Аска загружена! Размер модели: ' +
+            'Аска загружена! Размер: ' +
             size.x.toFixed(2) + ' × ' +
             size.y.toFixed(2) + ' × ' +
             size.z.toFixed(2);
 
-          console.log('Модель загружена:', gltf);
+          console.log(
+            'Модель успешно загружена:', gltf
+          );
         },
+
         (event) => {
           if (event.total > 0) {
+            const percent = Math.round(
+              event.loaded / event.total * 100
+            );
+
             status.textContent =
-              'Загрузка модели: ' +
-              Math.round(
-                event.loaded / event.total * 100
-              ) + '%';
+              'Загрузка модели: ' + percent + '%';
           } else {
             status.textContent =
-              'Загружаем модель: ' +
+              'Загружаем модель... ' +
               (event.loaded / 1048576).toFixed(1) +
               ' МБ получено';
           }
         },
+
         (error) => {
           console.error(
-            'GLTFLoader error:', error
+            'Ошибка загрузки модели:', error
           );
 
           showError(
-            'GLTFLoader не смог прочитать модель. ' +
-            'Проверь консоль браузера: возможны CORS, ' +
-            'сетевая ошибка или некорректный GLB. ' +
+            'Не удалось прочитать GLB. ' +
+            'Проверь доступность файла, CORS и сеть. ' +
             'Подробности: ' +
             (error?.message || String(error))
           );
@@ -210,7 +228,7 @@
 
       showError(
         (error?.message || String(error)) +
-        '. Проверь подключение к интернету и поддержку WebGL.'
+        '. Проверь интернет и поддержку WebGL.'
       );
     }
   </script>
