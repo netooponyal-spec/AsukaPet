@@ -4,274 +4,499 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Аска — 3D модель</title>
+  <title>Asuka Pet</title>
 
   <style>
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      padding: 16px;
-      background: #171717;
-      color: white;
-      font-family: sans-serif;
+      overflow: hidden;
+      background: #17131d;
+      color: #fff;
+      font-family: Arial, sans-serif;
     }
 
-    h2 { margin-top: 0; }
+    #scene {
+      display: block;
+      width: 100vw;
+      height: 100dvh;
+      touch-action: pan-y;
+    }
+
+    #panel {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 5;
+      padding: 12px;
+      border: 1px solid #ffffff25;
+      border-radius: 14px;
+      background: #17131ddd;
+      backdrop-filter: blur(8px);
+    }
+
+    #title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #ff8ca9;
+    }
 
     #status {
-      line-height: 1.5;
+      margin-top: 7px;
+      font-size: 13px;
+      line-height: 1.4;
       overflow-wrap: anywhere;
-      color: #b9e5ff;
+      color: #ddd;
     }
 
-    #view {
-      width: 100%;
-      height: 68vh;
-      display: block;
-      border-radius: 12px;
-      background: #292929;
-      touch-action: none;
-    }
-
-    #controls {
+    #buttons {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 12px;
+      margin-top: 10px;
     }
 
     button {
-      padding: 11px 15px;
       border: 0;
-      border-radius: 8px;
-      background: #393939;
+      border-radius: 9px;
+      padding: 10px 13px;
       color: white;
-      font-size: 15px;
+      background: #c52e59;
+      font-size: 14px;
+    }
+
+    button.secondary {
+      background: #494252;
+    }
+
+    #hint {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      text-align: center;
+      color: #d8cedd;
+      font-size: 12px;
+      text-shadow: 0 1px 4px black;
+      pointer-events: none;
     }
   </style>
 </head>
 
 <body>
-  <h2>Аска — 3D модель</h2>
-  <p id="status">Подготовка...</p>
-  <canvas id="view"></canvas>
+  <div id="panel">
+    <div id="title">ASUKA PET</div>
+    <div id="status">Загрузка Аски...</div>
 
-  <div id="controls">
-    <button id="play">▶ Анимация</button>
-    <button id="stop">■ Стоп</button>
-    <button id="reset">↻ Сброс</button>
+    <div id="buttons">
+      <button id="idleButton">Дыхание: ВКЛ</button>
+      <button id="resetButton" class="secondary">Сбросить камеру</button>
+    </div>
   </div>
 
+  <canvas id="scene"></canvas>
+  <div id="hint">Перетаскивай пальцем, чтобы вращать камеру</div>
+
   <script type="module">
-    const status = document.getElementById('status');
-    const canvas = document.getElementById('view');
+    import * as THREE from
+      "https://esm.sh/three@0.170.0";
+
+    import { GLTFLoader } from
+      "https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js";
 
     const MODEL_URL =
-      'https://huggingface.co/An9er/asuka-model/resolve/main/ip-evangelion__asuka-langley__concept__tpose%20(3).glb';
+      "https://huggingface.co/An9er/asuka-model/resolve/main/ip-evangelion__asuka-langley__concept__tpose%20(3).glb";
 
-    let mixer = null;
-    let actions = [];
-    let currentAction = null;
+    const canvas = document.getElementById("scene");
+    const status = document.getElementById("status");
+    const idleButton = document.getElementById("idleButton");
+    const resetButton = document.getElementById("resetButton");
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x17131d);
+
+    const camera = new THREE.PerspectiveCamera(
+      35,
+      window.innerWidth / window.innerHeight,
+      0.01,
+      1000
+    );
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false
+    });
+
+    renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, 2)
+    );
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x65506b, 2));
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 3);
+    keyLight.position.set(4, 7, 5);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0xff719d, 1.5);
+    fillLight.position.set(-4, 3, -3);
+    scene.add(fillLight);
+
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(5, 64),
+      new THREE.MeshStandardMaterial({
+        color: 0x292231,
+        roughness: 0.9
+      })
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.02;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(10, 20, 0x59405f, 0x382b40);
+    grid.position.y = 0;
+    scene.add(grid);
+
+    const characterRoot = new THREE.Group();
+    scene.add(characterRoot);
+
     let model = null;
+    let mixer = null;
+    let idleEnabled = true;
+    let initialCameraPosition = new THREE.Vector3();
+    let initialTarget = new THREE.Vector3(0, 1, 0);
 
-    function showError(message) {
-      status.textContent = 'Ошибка: ' + message;
-      console.error(message);
+    // Кости, которые удаётся распознать по имени.
+    const bones = {
+      hips: [],
+      spine: [],
+      chest: [],
+      neck: [],
+      head: [],
+      leftArm: [],
+      rightArm: []
+    };
+
+    const originalBoneRotations = new Map();
+    const clock = new THREE.Clock();
+
+    function setStatus(message) {
+      status.textContent = message;
     }
 
-    try {
-      status.textContent = 'Подключаем Three.js...';
+    function matches(name, patterns) {
+      return patterns.some(pattern => pattern.test(name));
+    }
 
-      const THREE = await import(
-        'https://esm.sh/three@0.170.0'
-      );
+    function classifyBone(bone) {
+      const name = bone.name.toLowerCase().replace(/[\s.-]/g, "_");
 
-      const { GLTFLoader } = await import(
-        'https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js'
-      );
+      // Не смешиваем левую и правую стороны.
+      const left = /(^|_)(left|l)(_|$)/.test(name) ||
+                   /left|_l$/.test(name);
+      const right = /(^|_)(right|r)(_|$)/.test(name) ||
+                    /right|_r$/.test(name);
 
-      const renderer = new THREE.WebGLRenderer({
-        canvas,
-        antialias: true
-      });
+      if (matches(name, [/hips/, /pelvis/, /root_motion/])) {
+        bones.hips.push(bone);
+      } else if (matches(name, [/chest/, /upper_chest/, /thorax/])) {
+        bones.chest.push(bone);
+      } else if (matches(name, [/spine/, /abdomen/, /waist/])) {
+        bones.spine.push(bone);
+      } else if (matches(name, [/neck/])) {
+        bones.neck.push(bone);
+      } else if (matches(name, [/head/, /skull/])) {
+        bones.head.push(bone);
+      } else if (matches(name, [/upperarm/, /shoulder/, /clavicle/, /arm/])) {
+        if (left) bones.leftArm.push(bone);
+        if (right) bones.rightArm.push(bone);
+      }
+    }
 
-      renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio || 1, 2)
-      );
+    function fitCamera(object) {
+      const box = new THREE.Box3().setFromObject(object);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
 
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x292929);
-
-      const camera = new THREE.PerspectiveCamera(
-        35, 1, 0.01, 10000
-      );
-
-      scene.add(new THREE.HemisphereLight(
-        0xffffff, 0x555566, 2.2
-      ));
-
-      const light = new THREE.DirectionalLight(
-        0xffffff, 3
-      );
-      light.position.set(4, 8, 6);
-      scene.add(light);
-
-      function resize() {
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
-        if (!w || !h) return;
-
-        renderer.setSize(w, h, false);
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
+      if (!Number.isFinite(size.y) || size.y <= 0) {
+        throw new Error("У модели не удалось определить размеры.");
       }
 
-      window.addEventListener('resize', resize);
-      resize();
+      // Перемещаем модель так, чтобы ноги стояли у пола.
+      characterRoot.position.y -= box.min.y;
+      object.updateMatrixWorld(true);
 
-      // Загружаем файл отдельно, чтобы увидеть
-      // сетевые ошибки до передачи в GLTFLoader.
-      status.textContent = 'Получаем файл модели...';
+      const adjustedBox = new THREE.Box3().setFromObject(object);
+      const adjustedCenter = adjustedBox.getCenter(new THREE.Vector3());
+      const adjustedSize = adjustedBox.getSize(new THREE.Vector3());
 
-      const response = await fetch(MODEL_URL);
+      const height = Math.max(adjustedSize.y, 0.1);
+      const distance = (height / 2) /
+        Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
 
-      if (!response.ok) {
-        throw new Error(
-          'Сервер вернул HTTP ' +
-          response.status + ' ' + response.statusText
-        );
-      }
+      camera.position.set(
+        adjustedCenter.x,
+        height * 0.57,
+        adjustedCenter.z + distance * 1.65
+      );
 
-      const contentType =
-        response.headers.get('content-type') || '';
-
-      if (contentType.includes('text/html')) {
-        throw new Error(
-          'Вместо GLB сервер вернул HTML. ' +
-          'Проверь ссылку на файл.'
-        );
-      }
-
-      status.textContent = 'Читаем файл модели...';
-
-      const buffer = await response.arrayBuffer();
-
-      if (buffer.byteLength < 12) {
-        throw new Error('Файл слишком маленький и не похож на GLB.');
-      }
-
-      status.textContent =
-        'Получено ' +
-        (buffer.byteLength / 1048576).toFixed(1) +
-        ' МБ. Разбираем модель...';
-
-      const loader = new GLTFLoader();
-
-      const gltf = await new Promise((resolve, reject) => {
-        loader.parse(
-          buffer,
-          '',
-          resolve,
-          reject
-        );
-      });
-
-      model = gltf.scene;
-      scene.add(model);
-
-      const bounds = new THREE.Box3().setFromObject(model);
-      const size = bounds.getSize(new THREE.Vector3());
-      const center = bounds.getCenter(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-
-      if (!Number.isFinite(maxDim) || maxDim <= 0) {
-        throw new Error('У модели неправильные размеры.');
-      }
-
-      model.position.sub(center);
-
-      const distance =
-        (maxDim / 2) /
-        Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) *
-        1.5;
-
-      camera.position.set(0, 0, distance);
-      camera.near = Math.max(maxDim / 1000, 0.001);
-      camera.far = maxDim * 100;
-      camera.lookAt(0, 0, 0);
+      camera.near = Math.max(height / 1000, 0.001);
+      camera.far = Math.max(height * 100, 100);
       camera.updateProjectionMatrix();
 
-      if (gltf.animations && gltf.animations.length > 0) {
-        mixer = new THREE.AnimationMixer(model);
+      initialCameraPosition.copy(camera.position);
+      initialTarget.set(
+        adjustedCenter.x,
+        height * 0.48,
+        adjustedCenter.z
+      );
 
-        actions = gltf.animations.map((clip) => {
-          console.log(
-            'Анимация:', clip.name,
-            'Длительность:', clip.duration
+      camera.lookAt(initialTarget);
+    }
+
+    async function loadCharacter() {
+      try {
+        setStatus("Загружаю модель с Hugging Face...");
+
+        const response = await fetch(MODEL_URL);
+
+        if (!response.ok) {
+          throw new Error(
+            "Сервер модели ответил HTTP " + response.status
           );
-          return mixer.clipAction(clip);
+        }
+
+        const buffer = await response.arrayBuffer();
+
+        setStatus("Файл загружен. Собираю Аску...");
+
+        const loader = new GLTFLoader();
+
+        const gltf = await new Promise((resolve, reject) => {
+          loader.parse(buffer, "", resolve, reject);
         });
 
-        currentAction = actions[0];
-        currentAction.reset().play();
+        model = gltf.scene;
+        characterRoot.add(model);
 
-        status.textContent =
-          'Аска загружена! Анимаций: ' +
-          gltf.animations.length;
-      } else {
-        status.textContent =
-          'Аска загружена! В модели нет встроенных анимаций.';
+        model.traverse(object => {
+          if (object.isMesh) {
+            object.frustumCulled = false;
+
+            if (object.material) {
+              const materials = Array.isArray(object.material)
+                ? object.material
+                : [object.material];
+
+              for (const material of materials) {
+                material.needsUpdate = true;
+              }
+            }
+          }
+
+          if (object.isSkinnedMesh && object.skeleton) {
+            for (const bone of object.skeleton.bones) {
+              classifyBone(bone);
+
+              if (!originalBoneRotations.has(bone)) {
+                originalBoneRotations.set(bone, {
+                  x: bone.rotation.x,
+                  y: bone.rotation.y,
+                  z: bone.rotation.z
+                });
+              }
+            }
+          }
+        });
+
+        fitCamera(model);
+
+        if (gltf.animations && gltf.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(model);
+          mixer.clipAction(gltf.animations[0]).play();
+        }
+
+        const boneCount = originalBoneRotations.size;
+
+        setStatus(
+          "Аска загружена! " +
+          "Анимаций в файле: " + gltf.animations.length +
+          ". Найдено костей: " + boneCount +
+          (boneCount > 0
+            ? ". Процедурное движение включено."
+            : ". Скелет не найден — доступно только движение всей модели.")
+        );
+
+      } catch (error) {
+        console.error("Ошибка загрузки Аски:", error);
+
+        setStatus(
+          "Ошибка: " + (error.message || String(error)) +
+          ". Проверь ссылку на модель и доступ к интернету."
+        );
       }
-
-      document.getElementById('play').onclick = () => {
-        if (!actions.length) {
-          status.textContent =
-            'В этой модели нет встроенных анимаций.';
-          return;
-        }
-
-        currentAction = actions[0];
-        currentAction.reset().play();
-        status.textContent = 'Анимация запущена.';
-      };
-
-      document.getElementById('stop').onclick = () => {
-        if (currentAction) currentAction.stop();
-        status.textContent = 'Анимация остановлена.';
-      };
-
-      document.getElementById('reset').onclick = () => {
-        if (currentAction) {
-          currentAction.stop();
-          currentAction.reset();
-        }
-        status.textContent = 'Анимация сброшена.';
-      };
-
-      const clock = new THREE.Clock();
-
-      function animate() {
-        requestAnimationFrame(animate);
-
-        if (mixer) {
-          mixer.update(clock.getDelta());
-        }
-
-        renderer.render(scene, camera);
-      }
-
-      animate();
-
-    } catch (error) {
-      console.error('Ошибка Аски:', error);
-
-      showError(
-        (error?.message || String(error)) +
-        '. Если ошибка связана с fetch, ' +
-        'возможны CORS или сетевая блокировка.'
-      );
     }
+
+    idleButton.addEventListener("click", () => {
+      idleEnabled = !idleEnabled;
+
+      idleButton.textContent = idleEnabled
+        ? "Дыхание: ВКЛ"
+        : "Дыхание: ВЫКЛ";
+    });
+
+    resetButton.addEventListener("click", () => {
+      camera.position.copy(initialCameraPosition);
+      camera.lookAt(initialTarget);
+
+      if (model) {
+        characterRoot.rotation.set(0, 0, 0);
+      }
+    });
+
+    // Простое вращение камеры пальцем.
+    let dragging = false;
+    let previousX = 0;
+    let previousY = 0;
+    let cameraAngle = 0;
+    let cameraHeightOffset = 0;
+
+    canvas.addEventListener("pointerdown", event => {
+      dragging = true;
+      previousX = event.clientX;
+      previousY = event.clientY;
+      canvas.setPointerCapture(event.pointerId);
+    });
+
+    canvas.addEventListener("pointermove", event => {
+      if (!dragging) return;
+
+      const dx = event.clientX - previousX;
+      const dy = event.clientY - previousY;
+
+      previousX = event.clientX;
+      previousY = event.clientY;
+
+      cameraAngle -= dx * 0.008;
+      cameraHeightOffset += dy * 0.006;
+      cameraHeightOffset = THREE.MathUtils.clamp(
+        cameraHeightOffset, -1.5, 1.5
+      );
+
+      const offset = initialCameraPosition.clone().sub(initialTarget);
+      const radius = Math.sqrt(offset.x * offset.x + offset.z * offset.z);
+      const baseAngle = Math.atan2(offset.x, offset.z);
+
+      camera.position.x = initialTarget.x +
+        Math.sin(baseAngle + cameraAngle) * radius;
+
+      camera.position.z = initialTarget.z +
+        Math.cos(baseAngle + cameraAngle) * radius;
+
+      camera.position.y = initialCameraPosition.y +
+        cameraHeightOffset;
+
+      camera.lookAt(initialTarget);
+    });
+
+    canvas.addEventListener("pointerup", () => {
+      dragging = false;
+    });
+
+    canvas.addEventListener("pointercancel", () => {
+      dragging = false;
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = Math.min(clock.getDelta(), 0.05);
+      const time = clock.elapsedTime;
+
+      if (mixer) {
+        mixer.update(delta);
+      }
+
+      if (model && idleEnabled) {
+        // Небольшое покачивание всего персонажа.
+        characterRoot.rotation.y =
+          Math.sin(time * 0.55) * 0.035;
+
+        // Мягкое дыхание: небольшое вертикальное движение.
+        characterRoot.position.y =
+          Math.sin(time * 1.7) * 0.012;
+
+        // Лёгкое движение головы и корпуса, если есть подходящие кости.
+        for (const bone of bones.spine) {
+          const base = originalBoneRotations.get(bone);
+          if (!base) continue;
+
+          bone.rotation.x =
+            base.x + Math.sin(time * 1.7) * 0.018;
+        }
+
+        for (const bone of bones.chest) {
+          const base = originalBoneRotations.get(bone);
+          if (!base) continue;
+
+          bone.rotation.x =
+            base.x + Math.sin(time * 1.7) * 0.012;
+        }
+
+        for (const bone of bones.head) {
+          const base = originalBoneRotations.get(bone);
+          if (!base) continue;
+
+          bone.rotation.y =
+            base.y + Math.sin(time * 0.65) * 0.045;
+
+          bone.rotation.x =
+            base.x + Math.sin(time * 0.9) * 0.018;
+        }
+
+        for (const bone of bones.neck) {
+          const base = originalBoneRotations.get(bone);
+          if (!base) continue;
+
+          bone.rotation.y =
+            base.y + Math.sin(time * 0.65) * 0.018;
+        }
+      } else if (model) {
+        characterRoot.rotation.y = 0;
+        characterRoot.position.y = 0;
+
+        for (const [bone, base] of originalBoneRotations) {
+          bone.rotation.set(base.x, base.y, base.z);
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(
+        window.innerWidth,
+        window.innerHeight,
+        false
+      );
+    });
+
+    renderer.setSize(
+      window.innerWidth,
+      window.innerHeight,
+      false
+    );
+
+    animate();
+    loadCharacter();
   </script>
 </body>
 </html>
