@@ -1,5 +1,5 @@
 
-name: Optimize GLB v2
+name: Inspect Rem Model
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  optimize:
+  inspect:
     runs-on: ubuntu-latest
     steps:
       - name: Download original model
@@ -17,26 +17,14 @@ jobs:
             "https://github.com/netooponyal-spec/AsukaPet/releases/download/Ram/rem.glb" \
             -o rem-original.glb
 
-      - name: Check original file
+      - name: Inspect original model
         run: |
-          ls -lh rem-original.glb
-          file rem-original.glb
+          npx --yes @gltf-transform/cli inspect rem-original.glb \
+            > report.txt
+          cat report.txt
 
-      - name: Optimize model
-        run: |
-          npx --yes @gltf-transform/cli optimize \
-            rem-original.glb rem-v2.glb
-
-      - name: Verify output
-        run: |
-          ls -lh rem-original.glb rem-v2.glb
-          npx --yes @gltf-transform/cli inspect rem-v2.glb
-
-      - name: Upload new model
+      - name: Upload inspection report
         uses: actions/upload-artifact@v4
         with:
-          name: rem-v2
-          path: rem-v2.glb
-          if-no-files-found: error
-          compression-level: 0
-          
+          name: rem-report
+          path: report.txt
