@@ -1,5 +1,5 @@
 
-name: Optimize GLB
+name: Optimize GLB v2
 
 on:
   workflow_dispatch:
@@ -11,24 +11,32 @@ jobs:
   optimize:
     runs-on: ubuntu-latest
     steps:
-      - name: Download model
+      - name: Download original model
         run: |
-          curl -L --fail \
+          curl -L --fail --retry 3 \
             "https://github.com/netooponyal-spec/AsukaPet/releases/download/Ram/rem.glb" \
-            -o rem.glb
+            -o rem-original.glb
 
-      - name: Optimize model safely
+      - name: Check original file
+        run: |
+          ls -lh rem-original.glb
+          file rem-original.glb
+
+      - name: Optimize model
         run: |
           npx --yes @gltf-transform/cli optimize \
-            rem.glb rem-optimized.glb
+            rem-original.glb rem-v2.glb
 
-      - name: Check output
+      - name: Verify output
         run: |
-          ls -lh rem.glb rem-optimized.glb
-          npx --yes @gltf-transform/cli inspect rem-optimized.glb
+          ls -lh rem-original.glb rem-v2.glb
+          npx --yes @gltf-transform/cli inspect rem-v2.glb
 
-      - name: Upload optimized model
+      - name: Upload new model
         uses: actions/upload-artifact@v4
         with:
-          name: rem-optimized
-          path: rem-optimized.glb
+          name: rem-v2
+          path: rem-v2.glb
+          if-no-files-found: error
+          compression-level: 0
+          
