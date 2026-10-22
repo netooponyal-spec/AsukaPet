@@ -60,7 +60,7 @@ jobs:
 
           text = gradle_file.read_text()
 
-          # Remove existing Java and Kotlin target settings
+          # Remove old Java and Kotlin target configuration blocks
           text = re.sub(
               r'(?m)^[ \t]*compileOptions\s*\{[^{}]*\}[ \t]*\n?',
               '',
@@ -72,26 +72,40 @@ jobs:
               text
           )
 
-          # Insert matching JVM 17 settings inside android {}
-          match = re.search(r'\bandroid\s*\{', text)
-          if not match:
-              raise SystemExit("Could not find android { block")
-
-          settings = '''
+          # Configure Java 17 inside the Android block
+          android_settings = '''
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
               }
-
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
           '''
 
-          text = text[:match.end()] + "\n" + settings + "\n" + text[match.end():]
+          match = re.search(r'\bandroid\s*\{', text)
+          if not match:
+              raise SystemExit("Could not find android { block")
+
+          text = text[:match.end()] + "\n" + android_settings + "\n" + text[match.end():]
+
+          # Configure both compiler task types explicitly
+          task_settings = '''
+
+          tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
+              sourceCompatibility = "17"
+              targetCompatibility = "17"
+          }
+
+          tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+              compilerOptions {
+                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+              }
+          }
+          '''
+
+          text += task_settings
           gradle_file.write_text(text)
 
-          print("Patched Gradle file:", gradle_file)
+          print("Java and Kotlin targets configured for JVM 17")
+          print(f"Patched file: {gradle_file}")
           print(gradle_file.read_text())
           PY
 
