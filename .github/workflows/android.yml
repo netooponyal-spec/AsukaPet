@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'AsukaPet-Android-AI-Starter.zip'
+      - 'AsukaPet-Animations-Starter.zip'
       - '.github/workflows/android.yml'
 
 permissions:
@@ -14,6 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,33 +28,39 @@ jobs:
       - name: Install unzip
         run: sudo apt-get update && sudo apt-get install -y unzip
 
-      - name: Extract Android source
-        run: unzip -q AsukaPet-Android-AI-Starter.zip -d source
+      - name: Extract animated Android source
+        run: unzip -q AsukaPet-Animations-Starter.zip -d source
+
+      - name: Find Android project
+        run: |
+          echo "ZIP contents:"
+          find source -maxdepth 4 -type f | head -100
+          FILE=$(find source -path '*/app/build.gradle.kts' -print -quit)
+          if [ -z "$FILE" ]; then
+            echo "ERROR: app/build.gradle.kts not found in animation ZIP"
+            exit 1
+          fi
+          echo "Found Gradle file: $FILE"
+          echo "PROJECT_DIR=$(dirname "$(dirname "$FILE")")" >> "$GITHUB_ENV"
+
       - name: Fix Java and Kotlin JVM targets
         run: |
           FILE=$(find source -path '*/app/build.gradle.kts' -print -quit)
-          if [ -z "$FILE" ]; then
-            echo "Cannot find app/build.gradle.kts"
-            find source -maxdepth 4 -type f | head -80
-            exit 1
-          fi
           sed -i '/compileOptions[[:space:]]*{/,$d' "$FILE"
           sed -i '/android[[:space:]]*{/a\    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n    }' "$FILE"
-          echo "Updated $FILE"
-          
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Build debug APK
-        working-directory: source/AsukaDesktopPet
-        run: gradle --no-daemon assembleDebug
+        run: gradle --no-daemon -p "$PROJECT_DIR" assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AsukaPet-debug-APK
-          path: source/AsukaDesktopPet/app/build/outputs/apk/debug/app-debug.apk
+          name: AsukaPet-Animated-debug-APK
+          path: source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           
