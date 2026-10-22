@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   optimize:
@@ -17,10 +17,15 @@ jobs:
             "https://github.com/netooponyal-spec/AsukaPet/releases/download/Ram/rem.glb" \
             -o rem.glb
 
-      - name: Optimize GLB
+      - name: Optimize model safely
         run: |
-          npx --yes @gltf-transform/cli optimize rem.glb rem-optimized.glb \
-            --compress meshopt
+          npx --yes @gltf-transform/cli optimize \
+            rem.glb rem-optimized.glb
+
+      - name: Check output
+        run: |
+          ls -lh rem.glb rem-optimized.glb
+          npx --yes @gltf-transform/cli inspect rem-optimized.glb
 
       - name: Upload optimized model
         uses: actions/upload-artifact@v4
