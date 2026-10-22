@@ -4,131 +4,197 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Проверка модели Аски</title>
-
+  <title>Проверка 3D-модели Аски</title>
   <style>
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      padding: 20px;
+      padding: 16px;
       background: #171717;
       color: white;
       font-family: sans-serif;
     }
 
-    canvas {
-      width: 100%;
-      height: 65vh;
-      display: block;
-    }
+    h2 { font-size: 22px; }
 
     #status {
       overflow-wrap: anywhere;
+      line-height: 1.5;
+      color: #b9e5ff;
+    }
+
+    #view {
+      width: 100%;
+      height: 68vh;
+      display: block;
+      border-radius: 12px;
+      background: #292929;
     }
   </style>
 </head>
-
 <body>
   <h2>Проверка 3D-модели Аски</h2>
-  <p id="status">Подготовка загрузчика...</p>
+  <p id="status">Запуск...</p>
   <canvas id="view"></canvas>
 
   <script type="module">
-    import * as THREE from
-      'https://esm.sh/three@0.170.0';
-
-    import { GLTFLoader } from
-      'https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js';
-
     const status = document.getElementById('status');
     const canvas = document.getElementById('view');
 
+    const url =
+      'https://github.com/netooponyal-spec/AsukaPet/releases/download/Asuka-model-v1/ip-evangelion__asuka-langley__concept__tpose.glb';
+
+    function showError(message) {
+      status.textContent = 'Ошибка: ' + message;
+      console.error(message);
+    }
+
     try {
-      status.textContent = 'Инициализация 3D-сцены...';
+      status.textContent = 'Подключаем Three.js...';
+
+      const THREE = await import(
+        'https://esm.sh/three@0.170.0'
+      );
+
+      const { GLTFLoader } = await import(
+        'https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js'
+      );
+
+      status.textContent = 'Проверяем WebGL...';
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true
+      });
+
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio || 1, 2)
+      );
 
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x292929);
 
       const camera = new THREE.PerspectiveCamera(
-        45,
-        window.innerWidth / (window.innerHeight * 0.65),
-        0.1,
-        1000
-      );
-
-      camera.position.set(0, 1.5, 4);
-
-      const renderer = new THREE.WebGLRenderer({
-        canvas: canvas,
-        antialias: true
-      });
-
-      renderer.setSize(
-        window.innerWidth,
-        window.innerHeight * 0.65
-      );
-
-      renderer.setPixelRatio(
-        Math.min(window.devicePixelRatio, 2)
+        35, 1, 0.01, 10000
       );
 
       scene.add(
-        new THREE.HemisphereLight(0xffffff, 0x444444, 2)
+        new THREE.HemisphereLight(
+          0xffffff, 0x555566, 2.2
+        )
       );
 
-      const light = new THREE.DirectionalLight(0xffffff, 3);
-      light.position.set(3, 5, 4);
+      const light = new THREE.DirectionalLight(
+        0xffffff, 3
+      );
+      light.position.set(4, 8, 6);
       scene.add(light);
 
-      const url =
-  'https://github.com/netooponyal-spec/AsukaPet/releases/download/Asuka-model-v1/ip-evangelion__asuka-langley__concept__tpose.glb';
+      function resize() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+
+        if (!w || !h) return;
+
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+
       status.textContent = 'Загружаем модель Аски...';
 
       const loader = new GLTFLoader();
 
       loader.load(
         url,
-
         (gltf) => {
           const model = gltf.scene;
           scene.add(model);
 
-          const box = new THREE.Box3().setFromObject(model);
-          const center = box.getCenter(new THREE.Vector3());
-          const size = box.getSize(new THREE.Vector3());
+          const bounds = new THREE.Box3()
+            .setFromObject(model);
+
+          const size = bounds.getSize(
+            new THREE.Vector3()
+          );
+
+          const center = bounds.getCenter(
+            new THREE.Vector3()
+          );
+
+          if (
+            !Number.isFinite(size.x) ||
+            !Number.isFinite(size.y) ||
+            !Number.isFinite(size.z) ||
+            Math.max(size.x, size.y, size.z) === 0
+          ) {
+            showError('Модель пустая или имеет неверные размеры.');
+            return;
+          }
 
           model.position.sub(center);
 
-          const maxDim = Math.max(size.x, size.y, size.z);
-          camera.position.set(0, size.y * 0.15, maxDim * 2.5);
+          const maxDim = Math.max(
+            size.x, size.y, size.z
+          );
+
+          const fov = THREE.MathUtils.degToRad(
+            camera.fov
+          );
+
+          const distance =
+            (maxDim / 2) / Math.tan(fov / 2) * 1.35;
+
+          camera.position.set(
+            0, 0, distance
+          );
+
+          camera.near = Math.max(
+            maxDim / 1000, 0.001
+          );
+
+          camera.far = maxDim * 100;
           camera.lookAt(0, 0, 0);
-
-          status.textContent = 'Модель Аски загружена!';
-
-          console.log('Модель успешно загружена', gltf);
-        },
-
-        (event) => {
-          if (event.total > 0) {
-            const percent = Math.round(
-              event.loaded / event.total * 100
-            );
-
-            status.textContent =
-              'Загрузка модели: ' + percent + '%';
-          } else {
-            status.textContent =
-              'Загружаем модель... Получено ' +
-              Math.round(event.loaded / 1024 / 1024) +
-              ' МБ';
-          }
-        },
-
-        (error) => {
-          console.error('Ошибка загрузки модели:', error);
+          camera.updateProjectionMatrix();
 
           status.textContent =
-            'Не удалось загрузить модель. ' +
-            'Возможна проблема с доступом к файлу или сетью.';
+            'Аска загружена! Размер модели: ' +
+            size.x.toFixed(2) + ' × ' +
+            size.y.toFixed(2) + ' × ' +
+            size.z.toFixed(2);
+
+          console.log('Модель загружена:', gltf);
+        },
+        (event) => {
+          if (event.total > 0) {
+            status.textContent =
+              'Загрузка модели: ' +
+              Math.round(
+                event.loaded / event.total * 100
+              ) + '%';
+          } else {
+            status.textContent =
+              'Загружаем модель: ' +
+              (event.loaded / 1048576).toFixed(1) +
+              ' МБ получено';
+          }
+        },
+        (error) => {
+          console.error(
+            'GLTFLoader error:', error
+          );
+
+          showError(
+            'GLTFLoader не смог прочитать модель. ' +
+            'Проверь консоль браузера: возможны CORS, ' +
+            'сетевая ошибка или некорректный GLB. ' +
+            'Подробности: ' +
+            (error?.message || String(error))
+          );
         }
       );
 
@@ -139,22 +205,13 @@
 
       animate();
 
-      window.addEventListener('resize', () => {
-        camera.aspect =
-          window.innerWidth / (window.innerHeight * 0.65);
-
-        camera.updateProjectionMatrix();
-
-        renderer.setSize(
-          window.innerWidth,
-          window.innerHeight * 0.65
-        );
-      });
-
     } catch (error) {
       console.error('Ошибка запуска:', error);
-      status.textContent =
-        'Ошибка запуска: ' + error.message;
+
+      showError(
+        (error?.message || String(error)) +
+        '. Проверь подключение к интернету и поддержку WebGL.'
+      );
     }
   </script>
 </body>
