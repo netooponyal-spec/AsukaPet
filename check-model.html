@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Проверка модели Аски</title>
+</head>
+<body style="font-family:sans-serif;padding:20px">
+<h2>Проверка GLB модели</h2>
+<input type="file" id="file" accept=".glb">
+<pre id="result">Выбери файл .glb размером 34 МБ.</pre>
+<script>
+document.getElementById('file').onchange = async e => {
+  const out = document.getElementById('result');
+  try {
+    const b = await e.target.files[0].arrayBuffer();
+    const v = new DataView(b);
+    if (v.getUint32(0, true) !== 0x46546C67) throw Error('Это не GLB');
+    let p = 12, json;
+    while (p < b.byteLength) {
+      const len = v.getUint32(p, true);
+      const type = v.getUint32(p + 4, true);
+      p += 8;
+      if (type === 0x4E4F534A) {
+        json = JSON.parse(new TextDecoder().decode(b.slice(p, p + len)));
+        break;
+      }
+      p += len;
+    }
+    if (!json) throw Error('Не найден JSON внутри GLB');
+    out.textContent =
+      'Файл: ' + e.target.files[0].name + '\n' +
+      'Размер: ' + (b.byteLength / 1048576).toFixed(1) + ' МБ\n' +
+      'Скелеты (skins): ' + (json.skins?.length || 0) + '\n' +
+      'Анимации: ' + (json.animations?.length || 0) + '\n' +
+      'Кости/узлы: ' + (json.nodes?.length || 0) + '\n' +
+      '\n' + ((json.animations?.length || 0) > 0
+        ? 'Анимации внутри файла есть.'
+        : 'Встроенных анимаций не найдено.');
+  } catch(err) {
+    out.textContent = 'Ошибка: ' + err.message;
+  }
+};
+</script>
+</body>
+</html>
