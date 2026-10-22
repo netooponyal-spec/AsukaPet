@@ -1,0 +1,29 @@
+
+name: Optimize GLB
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download model
+        run: |
+          curl -L --fail \
+            "https://github.com/netooponyal-spec/AsukaPet/releases/download/Ram/rem.glb" \
+            -o rem.glb
+
+      - name: Optimize GLB
+        run: |
+          npx --yes @gltf-transform/cli optimize rem.glb rem-optimized.glb \
+            --compress meshopt
+
+      - name: Upload optimized model
+        uses: actions/upload-artifact@v4
+        with:
+          name: rem-optimized
+          path: rem-optimized.glb
