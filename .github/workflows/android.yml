@@ -28,24 +28,60 @@ jobs:
           unzip -o AsukaPet-Android-AI-Starter.zip -d android-app
 
       - name: Find project directory
+        shell: bash
         run: |
-          echo "Looking for Gradle project..."
-          find android-app -maxdepth 5 \
-            \( -name settings.gradle -o -name settings.gradle.kts \) -print
+          echo "Searching for Gradle project..."
 
-          SETTINGS_FILE=$(find android-app -maxdepth 5 -type f \
+          SETTINGS_FILE=$(find android-app -maxdepth 8 -type f \
             \( -name settings.gradle -o -name settings.gradle.kts \) \
             -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "::error::Gradle settings file not found in ZIP"
-            find android-app -maxdepth 4 -type f | head -100
+            echo "::error::Gradle settings file not found"
+            find android-app -maxdepth 5 -type f | head -100
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Found project: $PROJECT_DIR"
+          echo "Project found: $PROJECT_DIR"
+
+      - name: Fix Java and Kotlin JVM targets
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          project = Path(os.environ["PROJECT_DIR"])
+          gradle_file = project / "app" / "build.gradle.kts"
+
+          if not gradle_file.exists():
+              raise SystemExit(f"File not found: {gradle_file}")
+
+          text = gradle_file.read_text()
+
+          if "targetCompatibility = JavaVersion.VERSION_17" not in text:
+              marker = "    buildFeatures {\n        buildConfig = true\n    }"
+              addition = (
+                  "\n\n"
+                  "    compileOptions {\n"
+                  "        sourceCompatibility = JavaVersion.VERSION_17\n"
+                  "        targetCompatibility = JavaVersion.VERSION_17\n"
+                  "    }\n\n"
+                  "    kotlinOptions {\n"
+                  "        jvmTarget = \"17\"\n"
+                  "    }"
+              )
+
+              if marker not in text:
+                  raise SystemExit("Could not find buildFeatures block")
+
+              text = text.replace(marker, marker + addition, 1)
+              gradle_file.write_text(text)
+
+          print("Java and Kotlin JVM targets set to 17")
+          PY
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -53,20 +89,22 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
-        run: |
-          gradle -p "$PROJECT_DIR" assembleDebug
+        run: gradle -p "$PROJECT_DIR" assembleDebug
 
-      - name: Prepare APK
+      - name: Find APK
+        shell: bash
         run: |
           APK=$(find "$PROJECT_DIR" -type f \
-            -path '*/outputs/apk/debug/app-debug.apk' -print -quit)
+            -path '*/outputs/apk/debug/app-debug.apk' \
+            -print -quit)
 
           if [ -z "$APK" ]; then
-            echo "::error::APK was not produced"
+            echo "::error::APK file was not produced"
             exit 1
           fi
 
           cp "$APK" Rem-Android-APK.apk
+          echo "APK ready"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
