@@ -1,4 +1,3 @@
-
 name: Build Android APK
 
 on:
@@ -23,6 +22,7 @@ jobs:
           java-version: '17'
 
       - name: Extract Android project
+        shell: bash
         run: |
           mkdir -p android-app
           unzip -o AsukaPet-Android-AI-Starter.zip -d android-app
@@ -54,23 +54,45 @@ jobs:
 
           project = Path(os.environ["PROJECT_DIR"])
           gradle_file = project / "app" / "build.gradle.kts"
+
+          if not gradle_file.exists():
+              raise SystemExit(f"Gradle file not found: {gradle_file}")
+
           text = gradle_file.read_text()
 
+          # Remove existing Java and Kotlin target settings
           text = re.sub(
-              r'jvmTarget\s*=\s*"[^"]+"',
-              'jvmTarget = "1.8"',
+              r'(?m)^[ \t]*compileOptions\s*\{[^{}]*\}[ \t]*\n?',
+              '',
+              text
+          )
+          text = re.sub(
+              r'(?m)^[ \t]*kotlinOptions\s*\{[^{}]*\}[ \t]*\n?',
+              '',
               text
           )
 
-          if "jvmTarget" not in text:
-              marker = "    buildFeatures {\n        buildConfig = true\n    }"
-              addition = '\n\n    kotlinOptions {\n        jvmTarget = "1.8"\n    }'
-              if marker not in text:
-                  raise SystemExit("Could not find buildFeatures block")
-              text = text.replace(marker, marker + addition, 1)
+          # Insert matching JVM 17 settings inside android {}
+          match = re.search(r'\bandroid\s*\{', text)
+          if not match:
+              raise SystemExit("Could not find android { block")
 
+          settings = '''
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          '''
+
+          text = text[:match.end()] + "\n" + settings + "\n" + text[match.end():]
           gradle_file.write_text(text)
-          print("Kotlin JVM target set to 1.8")
+
+          print("Patched Gradle file:", gradle_file)
+          print(gradle_file.read_text())
           PY
 
       - name: Set up Gradle
@@ -79,7 +101,9 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
-        run: gradle -p "$PROJECT_DIR" assembleDebug
+        shell: bash
+        run: |
+          gradle -p "$PROJECT_DIR" assembleDebug
 
       - name: Find APK
         shell: bash
@@ -94,10 +118,11 @@ jobs:
           fi
 
           cp "$APK" Rem-Android-APK.apk
+          echo "APK created successfully"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Rem-Android-APK
           path: Rem-Android-APK.apk
-          
+          if-no-files-found: error
