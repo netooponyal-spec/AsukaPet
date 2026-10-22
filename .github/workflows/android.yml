@@ -29,7 +29,18 @@ jobs:
 
       - name: Extract Android source
         run: unzip -q AsukaPet-Android-AI-Starter.zip -d source
-
+      - name: Fix Java and Kotlin JVM targets
+        run: |
+          FILE=$(find source -path '*/app/build.gradle.kts' -print -quit)
+          if [ -z "$FILE" ]; then
+            echo "Cannot find app/build.gradle.kts"
+            find source -maxdepth 4 -type f | head -80
+            exit 1
+          fi
+          sed -i '/compileOptions[[:space:]]*{/,$d' "$FILE"
+          sed -i '/android[[:space:]]*{/a\    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n    }' "$FILE"
+          echo "Updated $FILE"
+          
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
