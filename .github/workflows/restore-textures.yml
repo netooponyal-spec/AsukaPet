@@ -1,4 +1,4 @@
-
+```yaml
 name: Restore Rem Textures
 
 on:
@@ -6,6 +6,8 @@ on:
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
 
 jobs:
   restore:
@@ -40,10 +42,8 @@ jobs:
             throw new Error(`Texture file not found: ${texturePath}`);
           }
 
-          const image = fs.readFileSync(texturePath);
-
           const texture = doc.createTexture('Rem_ALBShadowAlt')
-            .setImage(image)
+            .setImage(fs.readFileSync(texturePath))
             .setMimeType('image/png');
 
           const material = root.listMaterials().find(
@@ -58,45 +58,24 @@ jobs:
             .setBaseColorTexture(texture)
             .setBaseColorFactor([1, 1, 1, 1]);
 
-          console.log('Texture attached to:', material.getName());
-
-          let removed = 0;
-
           for (const node of [...root.listNodes()]) {
             if (/^Bg\b/i.test(node.getName().trim())) {
-              console.log('Removing background node:', node.getName());
               node.dispose();
-              removed++;
             }
           }
 
-          console.log('Background nodes removed:', removed);
-
-          const scenes = root.listScenes();
-
-          for (const scene of scenes) {
-            const nodes = scene.listChildren();
-            console.log(
-              'Scene:',
-              scene.getName(),
-              '| root nodes:',
-              nodes.length
-            );
-          }
-
           await io.write('rem-textured.glb', doc);
-          console.log('Created rem-textured.glb');
           EOF
 
           node restore.mjs
+          mkdir -p public/models
+          cp rem-textured.glb public/models/rem-textured.glb
+          touch public/.nojekyll
 
-      - name: Inspect output model
-        run: |
-          npx --yes @gltf-transform/cli inspect rem-textured.glb
-
-      - name: Upload textured model
-        uses: actions/upload-artifact@v4
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: rem-textured
-          path: rem-textured.glb
-          compression-level: 0
+          path: public
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
