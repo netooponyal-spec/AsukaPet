@@ -29,9 +29,23 @@ jobs:
           curl -fL \
             "https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-textured1/rem-textured.glb" \
             -o public/models/rem-textured.glb
+          test -s public/models/rem-textured.glb
           ls -lh public/models/rem-textured.glb
+
+      - name: Copy website files
+        run: |
+          cp index.html public/
+          cp check-model.html public/
+          if [ -d assets ]; then cp -r assets public/; fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
