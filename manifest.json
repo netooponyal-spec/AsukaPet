@@ -1,0 +1,14 @@
+{
+  "id": "./",
+  "name": "Рэм — виртуальный компаньон",
+  "short_name": "Рэм",
+  "description": "3D-компаньон Рэм с голосовым вводом",
+  "lang": "ru",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#101018",
+  "theme_color": "#101018",
+  "icons": [{"src":"./rem-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
