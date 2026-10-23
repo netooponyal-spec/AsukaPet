@@ -1,0 +1,37 @@
+
+name: Publish Rem Model
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/publish-model.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Rem model
+        run: |
+          mkdir -p public/models
+          curl -fL \
+            "https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-textured1/rem-textured.glb" \
+            -o public/models/rem-textured.glb
+          ls -lh public/models/rem-textured.glb
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
