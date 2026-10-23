@@ -245,65 +245,74 @@ async function start() {
     // CALCULATE BOUNDS
     // --------------------------------------------------
 
-    const box =
-      new THREE.Box3();
+    // --------------------------------------------------
+    // CALCULATE BOUNDS (including meshes with missing bounds)
+    // --------------------------------------------------
 
+    model.updateMatrixWorld(true);
 
-    box.makeEmpty();
-
+    const box = new THREE.Box3().makeEmpty();
 
     for (const mesh of meshes) {
+      mesh.updateWorldMatrix(true, false);
 
-      mesh.updateWorldMatrix(
-        true,
-        false
-      );
+      const geometry = mesh.geometry;
+      if (!geometry) continue;
 
-      box.expandByObject(mesh);
+      // Some GLB files do not store geometry bounds.
+      if (!geometry.boundingBox) geometry.computeBoundingBox();
+      if (!geometry.boundingBox || geometry.boundingBox.isEmpty()) continue;
 
+      const meshBox = geometry.boundingBox.clone();
+      meshBox.applyMatrix4(mesh.matrixWorld);
+      if (
+        Number.isFinite(meshBox.min.x) &&
+        Number.isFinite(meshBox.min.y) &&
+        Number.isFinite(meshBox.min.z) &&
+        Number.isFinite(meshBox.max.x) &&
+        Number.isFinite(meshBox.max.y) &&
+        Number.isFinite(meshBox.max.z)
+      ) {
+        box.union(meshBox);
+      }
     }
-
 
     if (box.isEmpty()) {
-
+      // Diagnostic fallback: inspect raw vertex positions before giving up.
+      let vertexCount = 0;
+      let rawMax = 0;
+      for (const mesh of meshes) {
+        const position = mesh.geometry?.getAttribute("position");
+        if (!position) continue;
+        vertexCount += position.count;
+        for (let i = 0; i < position.count; i++) {
+          rawMax = Math.max(
+            rawMax,
+            Math.abs(position.getX(i)),
+            Math.abs(position.getY(i)),
+            Math.abs(position.getZ(i))
+          );
+        }
+      }
       throw new Error(
-        "Three.js не смог определить размеры геометрии модели."
+        "Не удалось определить габариты GLB. Mesh: " + meshCount +
+        ", вершин: " + vertexCount + ", координата вершины max: " + rawMax +
+        ". Возможно, исходный GLB пустой или повреждён."
       );
-
     }
 
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const maxSize = Math.max(size.x, size.y, size.z);
 
-    const size =
-      box.getSize(
-        new THREE.Vector3()
-      );
-
-
-    const center =
-      box.getCenter(
-        new THREE.Vector3()
-      );
-
-
-    const maxSize =
-      Math.max(
-        size.x,
-        size.y,
-        size.z
-      );
-
-
-    if (
-      !Number.isFinite(maxSize) ||
-      maxSize <= 0
-    ) {
-
+    if (!Number.isFinite(maxSize) || maxSize <= 0) {
       throw new Error(
-        "Размер модели равен нулю."
+        "Геометрия найдена, но её координаты нулевые. Размеры: " +
+        size.x.toFixed(6) + " × " +
+        size.y.toFixed(6) + " × " +
+        size.z.toFixed(6)
       );
-
     }
-
 
     // --------------------------------------------------
     // CENTER MODEL
@@ -311,16 +320,12 @@ async function start() {
 
     model.position.sub(center);
 
-
     // --------------------------------------------------
     // SCALE MODEL
     // --------------------------------------------------
 
     const targetSize = 3;
-
-    model.scale.setScalar(
-      targetSize / maxSize
-    );
+    model.scale.setScalar(targetSize / maxSize);
 
 
     // --------------------------------------------------
