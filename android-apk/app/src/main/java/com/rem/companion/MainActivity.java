@@ -54,7 +54,7 @@ public class MainActivity extends Activity {
         root.addView(info, ip);
 
         Button start = new Button(this);
-        start.setText("Показать Рэма поверх приложений");
+        start.setText("Показать Рэм поверх приложений");
         root.addView(start, new LinearLayout.LayoutParams(-1, -2));
         start.setOnClickListener(v -> enableOverlay());
 
