@@ -10,10 +10,10 @@ import android.webkit.*;
 import android.widget.Toast;
 
 public class OverlayService extends Service {
- private WindowManager wm;
- private WindowManager.LayoutParams lp;
- private WebView pet;
- private android.widget.FrameLayout overlayRoot;
+ private static WindowManager wm;
+ private static WindowManager.LayoutParams lp;
+ private static WebView pet;
+ private static android.widget.FrameLayout overlayRoot;
  private static volatile boolean running=false;
  private static volatile String webStatus="Не запущено";
  private static volatile String lastError="Нет";
@@ -125,6 +125,6 @@ public class OverlayService extends Service {
  }
 
  @Override public int onStartCommand(Intent i,int f,int id){return START_STICKY;}
- @Override public void onDestroy(){running=false;webStatus="Сервис остановлен";if(wm!=null&&overlayRoot!=null)try{wm.removeView(overlayRoot);if(pet!=null)pet.destroy();}catch(Exception ignored){}super.onDestroy();}
+ @Override public void onDestroy(){running=false;webStatus="Сервис остановлен";if(wm!=null&&overlayRoot!=null)try{wm.removeView(overlayRoot);if(pet!=null)pet.destroy();}catch(Exception ignored){}wm=null;overlayRoot=null;pet=null;super.onDestroy();}
  @Override public IBinder onBind(Intent i){return null;}
 }
