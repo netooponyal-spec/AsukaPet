@@ -2,151 +2,263 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rem Pet — 3D Viewer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Rem Pet — 3D Viewer</title>
 
-<style>
-html, body {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: transparent;
-}
-#viewer {
-  position: fixed;
-  inset: 0;
-}
-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-#status {
-  position: fixed;
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
-  padding: 10px;
-  border-radius: 8px;
-  background: rgba(30,30,30,.9);
-  color: white;
-  font: 14px system-ui, sans-serif;
-  overflow-wrap: anywhere;
-}
-</style>
+  <style>
+    * { box-sizing: border-box; }
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      font-family: Arial, sans-serif;
+    }
+
+    #scene {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    #panel {
+      position: fixed;
+      z-index: 5;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      color: white;
+      background: rgba(25, 21, 33, 0.88);
+    }
+
+    #title {
+      font-size: 19px;
+      font-weight: bold;
+      color: #8dcfff;
+    }
+
+    #status {
+      margin-top: 7px;
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    button {
+      margin-top: 10px;
+      margin-right: 6px;
+      padding: 9px 12px;
+      border: 0;
+      border-radius: 8px;
+      background: #397fbd;
+      color: white;
+      font-size: 14px;
+    }
+  </style>
 </head>
 
 <body>
-<div id="viewer"></div>
-<div id="status">Запускаю 3D-движок…</div>
+  <div id="panel">
+    <div id="title">REM PET 💙</div>
+    <div id="status">Подключаю 3D-движок…</div>
+    <button id="rotateButton">Вращение: включено</button>
+    <button id="resetButton">Сбросить камеру</button>
+  </div>
 
-<script type="module">
-const status = document.getElementById("status");
+  <canvas id="scene"></canvas>
 
-async function start() {
-  try {
-    const THREE = await import("three");
-    const { GLTFLoader } =
-      await import("three/addons/loaders/GLTFLoader.js");
+  <script type="module">
+    const status = document.getElementById("status");
+    const canvas = document.getElementById("scene");
+    const rotateButton = document.getElementById("rotateButton");
+    const resetButton = document.getElementById("resetButton");
 
-    const scene = new THREE.Scene();
-    scene.background = null;
+    async function start() {
+      try {
+        status.textContent = "Загружаю 3D-движок…";
 
-    const camera = new THREE.PerspectiveCamera(
-      35, innerWidth / innerHeight, 0.01, 1000
-    );
+        const THREE = await import(
+          "https://esm.sh/three@0.170.0"
+        );
 
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true
-    });
+        const { GLTFLoader } = await import(
+          "https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js"
+        );
 
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-    renderer.setSize(innerWidth, innerHeight);
-    renderer.setClearColor(0x000000, 0);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
+        const scene = new THREE.Scene();
+        scene.background = null;
 
-    document.getElementById("viewer")
-      .appendChild(renderer.domElement);
+        const camera = new THREE.PerspectiveCamera(
+          35,
+          window.innerWidth / window.innerHeight,
+          0.01,
+          10000
+        );
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x888899, 2));
+        const renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: true,
+          alpha: true
+        });
 
-    const light = new THREE.DirectionalLight(0xffffff, 3);
-    light.position.set(3, 5, 6);
-    scene.add(light);
+        renderer.setPixelRatio(
+          Math.min(window.devicePixelRatio || 1, 1.5)
+        );
 
-    const fill = new THREE.DirectionalLight(0xffb6d9, 1);
-    fill.position.set(-4, 2, -3);
-    scene.add(fill);
+        renderer.setSize(
+          window.innerWidth,
+          window.innerHeight
+        );
 
-    // Модель размещена на том же домене, что и сайт
-    const modelURL = new URL(
-      "./models/rem-textured.glb",
-      window.location.href
-    ).href;
+        renderer.setClearColor(0x000000, 0);
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.15;
 
-    status.textContent = "Загружаю Рем…";
+        scene.add(
+          new THREE.HemisphereLight(0xffffff, 0x665577, 2)
+        );
 
-    const loader = new GLTFLoader();
-    const gltf = await loader.loadAsync(modelURL);
-    const model = gltf.scene;
+        const light1 = new THREE.DirectionalLight(0xffffff, 3);
+        light1.position.set(4, 8, 6);
+        scene.add(light1);
 
-    scene.add(model);
+        const light2 = new THREE.DirectionalLight(0x82c9ff, 2);
+        light2.position.set(-5, 4, -4);
+        scene.add(light2);
 
-    const bounds = new THREE.Box3().setFromObject(model);
-    const size = bounds.getSize(new THREE.Vector3());
-    const center = bounds.getCenter(new THREE.Vector3());
+        // Модель лежит в папке models на этом же сайте.
+        const modelURL = new URL(
+          "./models/rem-textured.glb",
+          window.location.href
+        ).href;
 
-    model.position.sub(center);
+        status.textContent = "Загружаю модель Рем с GitHub Pages…";
 
-    const maxSize = Math.max(size.x, size.y, size.z);
-    if (maxSize > 0) {
-      model.scale.setScalar(2 / maxSize);
+        const loader = new GLTFLoader();
+        const gltf = await loader.loadAsync(modelURL);
+
+        const model = gltf.scene;
+        scene.add(model);
+
+        model.updateMatrixWorld(true);
+
+        const bounds = new THREE.Box3().setFromObject(model);
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
+
+        if (!Number.isFinite(size.y) || size.y <= 0) {
+          throw new Error("У модели не удалось определить размеры.");
+        }
+
+        model.position.x -= center.x;
+        model.position.y -= bounds.min.y;
+        model.position.z -= center.z;
+
+        const height = size.y;
+        const target = new THREE.Vector3(0, height / 2, 0);
+
+        const initialDistance =
+          (height / 2) /
+          Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+
+        let distance = initialDistance * 1.8;
+        let angle = 0;
+        let autoRotate = true;
+        let dragging = false;
+        let previousX = 0;
+
+        function updateCamera() {
+          camera.position.set(
+            Math.sin(angle) * distance,
+            height * 0.6,
+            Math.cos(angle) * distance
+          );
+          camera.lookAt(target);
+        }
+
+        updateCamera();
+
+        rotateButton.addEventListener("click", () => {
+          autoRotate = !autoRotate;
+          rotateButton.textContent = autoRotate
+            ? "Вращение: включено"
+            : "Вращение: выключено";
+        });
+
+        resetButton.addEventListener("click", () => {
+          angle = 0;
+          distance = initialDistance * 1.8;
+          updateCamera();
+        });
+
+        canvas.addEventListener("pointerdown", event => {
+          dragging = true;
+          previousX = event.clientX;
+          canvas.setPointerCapture(event.pointerId);
+        });
+
+        canvas.addEventListener("pointermove", event => {
+          if (!dragging) return;
+
+          angle += (event.clientX - previousX) * 0.008;
+          previousX = event.clientX;
+
+          updateCamera();
+        });
+
+        canvas.addEventListener("pointerup", () => {
+          dragging = false;
+        });
+
+        canvas.addEventListener("pointercancel", () => {
+          dragging = false;
+        });
+
+        window.addEventListener("resize", () => {
+          camera.aspect =
+            window.innerWidth / window.innerHeight;
+
+          camera.updateProjectionMatrix();
+
+          renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+          );
+        });
+
+        status.textContent =
+          "Рем загружена! Анимаций в модели: " +
+          (gltf.animations?.length || 0);
+
+        function animate() {
+          requestAnimationFrame(animate);
+
+          if (autoRotate && !dragging) {
+            angle += 0.003;
+            updateCamera();
+          }
+
+          renderer.render(scene, camera);
+        }
+
+        animate();
+
+      } catch (error) {
+        console.error(error);
+        status.textContent =
+          "Ошибка: " + (error.message || String(error));
+      }
     }
 
-    camera.position.set(0, 0, 4);
-    camera.lookAt(0, 0, 0);
-
-    status.textContent = "Рем загружена";
-
-    setTimeout(() => {
-      status.style.display = "none";
-    }, 2500);
-
-    addEventListener("resize", () => {
-      camera.aspect = innerWidth / innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(innerWidth, innerHeight);
-    });
-
-    function animate() {
-      requestAnimationFrame(animate);
-      model.rotation.y += 0.003;
-      renderer.render(scene, camera);
-    }
-
-    animate();
-
-  } catch (error) {
-    console.error(error);
-    status.style.display = "block";
-    status.textContent = "Ошибка: " +
-      (error.message || String(error));
-  }
-}
-
-start();
-</script>
+    start();
+  </script>
 </body>
 </html>
