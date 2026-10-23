@@ -50,7 +50,9 @@ jobs:
           test -s "$APK"
           SIZE=$(stat -c%s "$APK")
           echo "APK size: $SIZE bytes"
-          test "$SIZE" -gt 100000
+          test "$SIZE" -gt 10000
+          unzip -l "$APK"
+          unzip -l "$APK" | grep -q "classes.dex"
           file "$APK"
 
       - name: Upload APK
