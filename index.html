@@ -26,10 +26,12 @@ button#talk{background:#c84d83;border-color:#ef8db6;min-width:150px}
 <a href="./check-model.html">3D отдельно</a>
 </div>
 <script>
-const status=document.querySelector('#status'),detail=document.querySelector('#detail'),talk=document.querySelector('#talk'),stop=document.querySelector('#stop');
+const frame=document.querySelector('#model'),status=document.querySelector('#status'),detail=document.querySelector('#detail'),talk=document.querySelector('#talk'),stop=document.querySelector('#stop');
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 let recognition=null;
 function sayStatus(main,sub=''){status.firstChild.textContent=main;detail.textContent=sub}
+function requestModelStatus(){try{frame.contentWindow.postMessage('MODEL_STATUS_REQUEST','*')}catch(e){}}
+frame.addEventListener('load',()=>{setTimeout(requestModelStatus,150);setTimeout(requestModelStatus,1000);setTimeout(requestModelStatus,2500);});
 if(SR){
  recognition=new SR();recognition.lang='ru-RU';recognition.interimResults=false;recognition.maxAlternatives=1;
  recognition.onstart=()=>sayStatus('Рэм слушает…','Скажи фразу после сигнала браузера');
@@ -39,7 +41,13 @@ if(SR){
 }else{talk.disabled=true;talk.textContent='Голосовой ввод недоступен';sayStatus('Рэм готовится…','Для голосового ввода нужен браузер с поддержкой распознавания речи.')}
 talk.addEventListener('click',()=>{if(!recognition)return;try{talk.disabled=true;recognition.start()}catch(e){talk.disabled=false;sayStatus('Микрофон занят','Нажми «Поговорить» ещё раз через секунду')}});
 stop.addEventListener('click',()=>{if(recognition)recognition.stop();speechSynthesis.cancel();talk.disabled=false;talk.textContent='🎙️ Поговорить';sayStatus('Остановлено','Нажми «Поговорить», чтобы начать снова')});
-window.addEventListener('message',e=>{if(e.source!==document.querySelector('#model').contentWindow)return;if(e.data&&typeof e.data==='string'&&e.data.startsWith('MODEL_STATUS:')){const parts=e.data.slice(13).split('|');sayStatus(parts[0]||'Рэм готова ✓',parts[1]||'3D-модель Рэм')}});
+window.addEventListener('message',e=>{
+ if(e.source!==frame.contentWindow)return;
+ if(e.data&&typeof e.data==='string'&&e.data.startsWith('MODEL_STATUS:')){
+  const parts=e.data.slice(13).split('|');
+  sayStatus(parts[0]||'Рэм готова ✓',parts[1]||'3D-модель Рэм');
+ }
+});
 sayStatus('Рэм загружается…','3D-модель и голосовой ввод');
 </script>
 </body>
