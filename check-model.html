@@ -35,13 +35,13 @@ async function start(){
   const {GLTFLoader}=await import('https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js');
   const scene=new THREE.Scene();
   const camera=new THREE.PerspectiveCamera(35,window.innerWidth/window.innerHeight,.001,10000);
-  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
   renderer.setSize(window.innerWidth,window.innerHeight);
   renderer.setClearColor(0x000000,0);
   renderer.outputColorSpace=THREE.SRGBColorSpace;
-  renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.2;
+  renderer.toneMapping=THREE.NoToneMapping;
+  renderer.toneMappingExposure=1;
   viewer.appendChild(renderer.domElement);
   scene.add(new THREE.HemisphereLight(0xffffff,0x666677,2));
   const keyLight=new THREE.DirectionalLight(0xffffff,3);keyLight.position.set(4,7,6);scene.add(keyLight);
@@ -51,7 +51,8 @@ async function start(){
   const gltf=await new GLTFLoader().loadAsync(modelURL);
   const model=gltf.scene;scene.add(model);
   let meshCount=0;const meshes=[];
-  model.traverse(object=>{if(object.isMesh){meshCount++;meshes.push(object);object.frustumCulled=false;if(object.material){const mats=Array.isArray(object.material)?object.material:[object.material];for(const m of mats){m.visible=true;m.side=THREE.DoubleSide;m.needsUpdate=true;}}}});
+  const maxAnisotropy=renderer.capabilities.getMaxAnisotropy();
+  model.traverse(object=>{if(object.isMesh){meshCount++;meshes.push(object);object.frustumCulled=false;if(object.material){const mats=Array.isArray(object.material)?object.material:[object.material];for(const m of mats){m.visible=true;m.side=THREE.DoubleSide;for(const key of ['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap']){const tex=m[key];if(tex&&tex.isTexture){tex.anisotropy=maxAnisotropy;if(key==='map'||key==='emissiveMap')tex.colorSpace=THREE.SRGBColorSpace;tex.generateMipmaps=true;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.magFilter=THREE.LinearFilter;tex.needsUpdate=true;}}m.needsUpdate=true;}}}});
   if(meshCount===0)throw new Error('GLB загружен, но внутри нет 3D-геометрии (Mesh).');
   report('Рэм загружается…','Найдено 3D-объектов: '+meshCount+'. Подгоняю камеру');
   model.updateMatrixWorld(true);
