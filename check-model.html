@@ -34,8 +34,8 @@ async function start(){
   const THREE=await import('https://esm.sh/three@0.170.0');
   const {GLTFLoader}=await import('https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js');
   const scene=new THREE.Scene();
-  const camera=new THREE.PerspectiveCamera(35,window.innerWidth/window.innerHeight,.001,10000);
-  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
+  const camera=new THREE.PerspectiveCamera(35,window.innerWidth/window.innerHeight,.01,100);
+  const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true,powerPreference:'high-performance',preserveDrawingBuffer:false});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
   renderer.setSize(window.innerWidth,window.innerHeight);
   renderer.setClearColor(0x000000,0);
@@ -67,7 +67,7 @@ async function start(){
   report('Рэм загружена ✓','3D-модель готова • объектов: '+meshCount);
   setTimeout(()=>{status.style.display='none'},2500);
   window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight)});
-  function animate(){requestAnimationFrame(animate);model.rotation.y+=.003;renderer.render(scene,camera)}
+  function animate(){requestAnimationFrame(animate);model.rotation.y+=.003;renderer.clear();renderer.render(scene,camera)}
   animate();
  }catch(error){console.error('REM MODEL ERROR:',error);report('Ошибка 3D',''+(error&&error.message?error.message:String(error)))}
 }
