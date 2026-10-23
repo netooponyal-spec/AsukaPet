@@ -42,7 +42,6 @@ jobs:
           console.log('Meshes:', root.listMeshes().length);
           console.log('Materials:', root.listMaterials().length);
           console.log('Textures:', root.listTextures().length);
-          console.log('Images:', root.listImages().length);
 
           for (const material of root.listMaterials()) {
             const base = material.getBaseColorTexture();
@@ -74,10 +73,7 @@ jobs:
           console.log('=== END REM GLB DIAGNOSTIC ===');
 
           const texturePath = 'Rem_ALBShadowAlt.png';
-
-          if (!fs.existsSync(texturePath)) {
-            throw new Error(`Texture file not found: ${texturePath}`);
-          }
+          if (!fs.existsSync(texturePath)) throw new Error(`Texture file not found: ${texturePath}`);
 
           const texture = doc.createTexture('Rem_ALBShadowAlt')
             .setImage(fs.readFileSync(texturePath))
@@ -86,19 +82,12 @@ jobs:
           const material = root.listMaterials().find(
             m => m.getName().toLowerCase() === 'm_rem'
           );
+          if (!material) throw new Error('Material M_Rem was not found.');
 
-          if (!material) {
-            throw new Error('Material M_Rem was not found.');
-          }
-
-          material
-            .setBaseColorTexture(texture)
-            .setBaseColorFactor([1, 1, 1, 1]);
+          material.setBaseColorTexture(texture).setBaseColorFactor([1, 1, 1, 1]);
 
           for (const node of [...root.listNodes()]) {
-            if (/^Bg\b/i.test(node.getName().trim())) {
-              node.dispose();
-            }
+            if (/^Bg\b/i.test(node.getName().trim())) node.dispose();
           }
 
           await io.write('rem-textured.glb', doc);
