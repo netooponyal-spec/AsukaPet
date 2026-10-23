@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -109,6 +111,19 @@ public class MainActivity extends Activity {
         diagnosticText.setTextIsSelectable(true);
         diagnosticText.setGravity(Gravity.START);
         box.addView(diagnosticText, new LinearLayout.LayoutParams(-1, -2));
+
+        Button copyDiagnostics = new Button(this);
+        copyDiagnostics.setText("Копировать весь текст");
+        copyDiagnostics.setOnClickListener(v -> {
+            String fullText = diagnosticText != null && diagnosticText.getText() != null
+                    ? diagnosticText.getText().toString() : OverlayService.getDiagnostics(this);
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            clipboard.setPrimaryClip(ClipData.newPlainText("Диагностика Рэма", fullText));
+            android.widget.Toast.makeText(this, "Весь текст диагностики скопирован", android.widget.Toast.LENGTH_SHORT).show();
+        });
+        LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(-1, -2);
+        copyParams.topMargin = 8;
+        box.addView(copyDiagnostics, copyParams);
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle("Поверх приложений — диагностика")
