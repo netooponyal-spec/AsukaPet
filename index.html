@@ -39,7 +39,7 @@ if(SR){
 }else{talk.disabled=true;talk.textContent='Голосовой ввод недоступен';sayStatus('Рэм готовится…','Для голосового ввода нужен браузер с поддержкой распознавания речи.')}
 talk.addEventListener('click',()=>{if(!recognition)return;try{talk.disabled=true;recognition.start()}catch(e){talk.disabled=false;sayStatus('Микрофон занят','Нажми «Поговорить» ещё раз через секунду')}});
 stop.addEventListener('click',()=>{if(recognition)recognition.stop();speechSynthesis.cancel();talk.disabled=false;talk.textContent='🎙️ Поговорить';sayStatus('Остановлено','Нажми «Поговорить», чтобы начать снова')});
-window.addEventListener('message',e=>{if(e.data&&typeof e.data==='string'&&e.data.startsWith('MODEL_STATUS:'))sayStatus(e.data.slice(13),'3D-модель Рэм')});
+window.addEventListener('message',e=>{if(e.source!==document.querySelector('#model').contentWindow)return;if(e.data&&typeof e.data==='string'&&e.data.startsWith('MODEL_STATUS:')){const parts=e.data.slice(13).split('|');sayStatus(parts[0]||'Рэм готова ✓',parts[1]||'3D-модель Рэм')}});
 sayStatus('Рэм загружается…','3D-модель и голосовой ввод');
 </script>
 </body>
