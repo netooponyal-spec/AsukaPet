@@ -8,6 +8,7 @@ import android.provider.Settings;
 import android.view.*;
 import android.webkit.*;
 import android.widget.Toast;
+import android.widget.TextView;
 
 public class OverlayService extends Service {
  private WindowManager wm;
