@@ -1,3 +1,4 @@
+
 name: Build Android APK
 
 on:
@@ -44,6 +45,28 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "Project found: $PROJECT_DIR"
 
+      - name: Download Rem 3D model
+        shell: bash
+        run: |
+          mkdir -p android-app/assets
+          curl -fL --retry 3 \
+            "https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-textured1/rem-textured.glb" \
+            -o android-app/assets/rem-textured.glb
+
+          test -s android-app/assets/rem-textured.glb
+          echo "Rem model downloaded:"
+          ls -lh android-app/assets/rem-textured.glb
+
+      - name: Install model into Android assets
+        shell: bash
+        run: |
+          mkdir -p "$PROJECT_DIR/app/src/main/assets"
+          cp android-app/assets/rem-textured.glb \
+            "$PROJECT_DIR/app/src/main/assets/rem-textured.glb"
+
+          test -s "$PROJECT_DIR/app/src/main/assets/rem-textured.glb"
+          echo "Model copied into Android assets"
+
       - name: Fix JVM targets
         shell: bash
         run: |
@@ -60,7 +83,6 @@ jobs:
 
           text = gradle_file.read_text()
 
-          # Remove old Java and Kotlin target configuration blocks
           text = re.sub(
               r'(?m)^[ \t]*compileOptions\s*\{[^{}]*\}[ \t]*\n?',
               '',
@@ -72,7 +94,6 @@ jobs:
               text
           )
 
-          # Configure Java 17 inside the Android block
           android_settings = '''
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
@@ -84,9 +105,14 @@ jobs:
           if not match:
               raise SystemExit("Could not find android { block")
 
-          text = text[:match.end()] + "\n" + android_settings + "\n" + text[match.end():]
+          text = (
+              text[:match.end()]
+              + "\n"
+              + android_settings
+              + "\n"
+              + text[match.end():]
+          )
 
-          # Configure both compiler task types explicitly
           task_settings = '''
 
           tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
@@ -106,7 +132,6 @@ jobs:
 
           print("Java and Kotlin targets configured for JVM 17")
           print(f"Patched file: {gradle_file}")
-          print(gradle_file.read_text())
           PY
 
       - name: Set up Gradle
