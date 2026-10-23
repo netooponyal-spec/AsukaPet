@@ -86,9 +86,24 @@ jobs:
 
           material.setBaseColorTexture(texture).setBaseColorFactor([1, 1, 1, 1]);
 
+          // Keep only the character mesh. The original GLB also contains outline,
+          // particles, floor, sky and environment geometry that render as stray squares
+          // in the transparent Android overlay.
+          let removed = 0;
           for (const node of [...root.listNodes()]) {
-            if (/^Bg\b/i.test(node.getName().trim())) node.dispose();
+            const mesh = node.getMesh();
+            if (!mesh) continue;
+            const name = node.getName().trim();
+            if (name !== 'GME_Rem') {
+              console.log('REMOVE NON-CHARACTER MESH', JSON.stringify({node: name, mesh: mesh.getName()}));
+              node.dispose();
+              removed++;
+            }
           }
+          // A character albedo should not be darkened by metallic reflections.
+          material.setMetallicFactor(0).setRoughnessFactor(0.85);
+          console.log('Removed non-character mesh nodes:', removed);
+          console.log('Final character material:', material.getName(), 'texture:', texture.getName());
 
           await io.write('rem-textured.glb', doc);
           EOF
