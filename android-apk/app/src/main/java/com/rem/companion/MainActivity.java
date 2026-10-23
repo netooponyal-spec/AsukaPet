@@ -58,6 +58,23 @@ public class MainActivity extends Activity {
         root.addView(start, new LinearLayout.LayoutParams(-1, -2));
         start.setOnClickListener(v -> enableOverlay());
 
+        TextView diagnostics = new TextView(this);
+        diagnostics.setText("ДИАГНОСТИКА 3D\\nПроверка перенесена сюда. Для проверки модели открой 3D-сцену в приложении. Если персонаж не виден, проверь интернет и пришли сюда текст ошибки.");
+        diagnostics.setTextColor(Color.WHITE);
+        diagnostics.setTextSize(14);
+        diagnostics.setPadding(14, 14, 14, 14);
+        diagnostics.setBackgroundColor(Color.rgb(42, 42, 52));
+        LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(-1, -2);
+        dp.topMargin = 18;
+        root.addView(diagnostics, dp);
+
+        Button diagnose = new Button(this);
+        diagnose.setText("Проверить 3D в приложении");
+        LinearLayout.LayoutParams diagp = new LinearLayout.LayoutParams(-1, -2);
+        diagp.topMargin = 10;
+        root.addView(diagnose, diagp);
+        diagnose.setOnClickListener(v -> showWebsite());
+
         Button site = new Button(this);
         site.setText("Открыть веб-версию");
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, -2);
