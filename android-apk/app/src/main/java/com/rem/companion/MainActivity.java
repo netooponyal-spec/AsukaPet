@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
         start.setOnClickListener(v -> enableOverlay());
 
         Button overlayDiagnostics = new Button(this);
-        overlayDiagnostics.setText("Диагностика «поверх приложений»");
+        overlayDiagnostics.setText("Диагностика");
         LinearLayout.LayoutParams odp = new LinearLayout.LayoutParams(-1, -2);
         odp.topMargin = 10;
         root.addView(overlayDiagnostics, odp);
@@ -101,9 +101,10 @@ public class MainActivity extends Activity {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(24, 8, 24, 4);
+        box.setBackgroundColor(Color.WHITE);
 
         diagnosticText = new TextView(this);
-        diagnosticText.setTextColor(Color.WHITE);
+        diagnosticText.setTextColor(Color.BLACK);
         diagnosticText.setTextSize(14);
         diagnosticText.setTextIsSelectable(true);
         diagnosticText.setGravity(Gravity.START);
