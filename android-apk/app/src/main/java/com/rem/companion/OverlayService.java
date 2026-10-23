@@ -22,18 +22,33 @@ public class OverlayService extends Service {
  public static boolean isRunning(){return running;}
  public static String getDiagnostics(Context c){
   StringBuilder b=new StringBuilder();
+  android.util.DisplayMetrics dm=c.getResources().getDisplayMetrics();
   b.append("СОСТОЯНИЕ «ПОВЕРХ ПРИЛОЖЕНИЙ»\n\n");
   b.append("Разрешение поверх других приложений: ").append(Settings.canDrawOverlays(c)?"ДА ✓":"НЕТ ✗").append("\n");
   b.append("Сервис OverlayService: ").append(running?"РАБОТАЕТ ✓":"НЕ ЗАПУЩЕН ✗").append("\n");
   b.append("WindowManager: ").append(wm!=null?"создан ✓":"нет ✗").append("\n");
-  b.append("Overlay-контейнер: ").append(overlayRoot!=null?"создан ✓":"нет ✗").append("\n");
-  b.append("WebView 3D: ").append(pet!=null?"создан ✓":"нет ✗").append("\n");
+  b.append("Overlay-контейнер: ").append(overlayRoot!=null?"создан ✓":"нет ✗");
+  if(overlayRoot!=null)b.append(" / attached=").append(overlayRoot.isAttachedToWindow()?"ДА":"НЕТ");
+  b.append("\n");
+  b.append("WebView 3D: ").append(pet!=null?"создан ✓":"нет ✗");
+  if(pet!=null){
+   b.append(" / visible=").append(pet.getVisibility()==View.VISIBLE?"ДА":"НЕТ");
+   b.append(" / shown=").append(pet.isShown()?"ДА":"НЕТ");
+   b.append(" / attached=").append(pet.isAttachedToWindow()?"ДА":"НЕТ");
+   b.append(" / size=").append(pet.getWidth()).append("×").append(pet.getHeight());
+   b.append(" / alpha=").append(pet.getAlpha());
+  }
+  b.append("\n");
+  b.append("WebView URL: ").append(pet!=null&&pet.getUrl()!=null?pet.getUrl():"нет").append("\n");
   b.append("WebView WebGL/модель: ").append(webStatus).append("\n");
   b.append("Размер окна: ").append(overlayWidth).append(" × ").append(overlayHeight).append(" px\n");
   b.append("Позиция: X=").append(overlayX).append(", Y=").append(overlayY).append("\n");
+  b.append("Экран: ").append(dm.widthPixels).append(" × ").append(dm.heightPixels).append(" px\n");
+  b.append("Плотность: ").append(dm.density).append("\n");
   b.append("Тип окна: ").append(Build.VERSION.SDK_INT>=26?"TYPE_APPLICATION_OVERLAY":"TYPE_PHONE").append("\n");
-  b.append("Android SDK: ").append(Build.VERSION.SDK_INT).append("\n");
-  b.append("Аппаратное ускорение: включено ✓\n");
+  b.append("Android: ").append(Build.VERSION.RELEASE).append(" (SDK ").append(Build.VERSION.SDK_INT).append(")\n");
+  b.append("Устройство: ").append(Build.MANUFACTURER).append(" ").append(Build.MODEL).append("\n");
+  b.append("Аппаратное ускорение WebView: включено ✓\n");
   b.append("Последняя ошибка: ").append(lastError);
   return b.toString();
  }
