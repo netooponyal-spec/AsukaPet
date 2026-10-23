@@ -13,6 +13,7 @@ public class OverlayService extends Service {
  private WindowManager wm;
  private WindowManager.LayoutParams lp;
  private WebView pet;
+ private android.widget.FrameLayout overlayRoot;
 
  @Override public void onCreate() {
   super.onCreate();
@@ -26,6 +27,8 @@ public class OverlayService extends Service {
   if(!Settings.canDrawOverlays(this)){stopSelf();return;}
 
   wm=(WindowManager)getSystemService(WINDOW_SERVICE);
+  overlayRoot=new android.widget.FrameLayout(this);
+  overlayRoot.setBackgroundColor(android.graphics.Color.TRANSPARENT);
   pet=new WebView(this);
   pet.setBackgroundColor(android.graphics.Color.TRANSPARENT);
   pet.setLayerType(View.LAYER_TYPE_HARDWARE,null);
@@ -54,6 +57,16 @@ public class OverlayService extends Service {
   lp=new WindowManager.LayoutParams(300,380,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS|WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,PixelFormat.TRANSLUCENT);
   lp.gravity=Gravity.TOP|Gravity.START;lp.x=20;lp.y=160;
 
+  overlayRoot.addView(pet,new android.widget.FrameLayout.LayoutParams(-1,-1));
+  TextView nativeStatus=new TextView(this);
+  nativeStatus.setText("Рэм: окно Android видно · проверяю 3D");
+  nativeStatus.setTextColor(android.graphics.Color.WHITE);
+  nativeStatus.setTextSize(12);
+  nativeStatus.setGravity(Gravity.CENTER);
+  nativeStatus.setBackgroundColor(0xCC202028);
+  android.widget.FrameLayout.LayoutParams statusParams=new android.widget.FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);
+  statusParams.setMargins(8,8,8,8);
+  overlayRoot.addView(nativeStatus,statusParams);
   pet.setOnTouchListener(new View.OnTouchListener(){
    float downX,downY,startX,startY;boolean moved;
    @Override public boolean onTouch(View v,MotionEvent e){
@@ -62,7 +75,7 @@ public class OverlayService extends Service {
      case MotionEvent.ACTION_MOVE:
       float dx=e.getRawX()-downX,dy=e.getRawY()-downY;
       if(Math.abs(dx)>6||Math.abs(dy)>6)moved=true;
-      if(moved){lp.x=(int)(startX+dx);lp.y=(int)(startY+dy);try{wm.updateViewLayout(pet,lp);}catch(Exception ignored){}}
+      if(moved){lp.x=(int)(startX+dx);lp.y=(int)(startY+dy);try{wm.updateViewLayout(overlayRoot,lp);}catch(Exception ignored){}}
       return true;
      case MotionEvent.ACTION_UP:if(!moved)Toast.makeText(OverlayService.this,"Рэм: 3D-модель загружается. Подожди немного при первом запуске.",Toast.LENGTH_SHORT).show();return true;
     }
@@ -70,7 +83,7 @@ public class OverlayService extends Service {
    }
   });
   try {
-   wm.addView(pet,lp);
+   wm.addView(overlayRoot,lp);
    pet.loadDataWithBaseURL("https://netooponyal-spec.github.io/AsukaPet/",html(),"text/html","UTF-8",null);
   }catch(Exception e){stopSelf();}
  }
@@ -91,6 +104,6 @@ public class OverlayService extends Service {
  }
 
  @Override public int onStartCommand(Intent i,int f,int id){return START_STICKY;}
- @Override public void onDestroy(){if(wm!=null&&pet!=null)try{wm.removeView(pet);pet.destroy();}catch(Exception ignored){}super.onDestroy();}
+ @Override public void onDestroy(){if(wm!=null&&overlayRoot!=null)try{wm.removeView(overlayRoot);if(pet!=null)pet.destroy();}catch(Exception ignored){}super.onDestroy();}
  @Override public IBinder onBind(Intent i){return null;}
 }
