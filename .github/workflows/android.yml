@@ -49,23 +49,24 @@ jobs:
         shell: bash
         run: |
           mkdir -p android-app/assets
+
           curl -fL --retry 3 \
             "https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-textured1/rem-textured.glb" \
             -o android-app/assets/rem-textured.glb
 
           test -s android-app/assets/rem-textured.glb
-          echo "Rem model downloaded:"
           ls -lh android-app/assets/rem-textured.glb
 
       - name: Install model into Android assets
         shell: bash
         run: |
           mkdir -p "$PROJECT_DIR/app/src/main/assets"
+
           cp android-app/assets/rem-textured.glb \
             "$PROJECT_DIR/app/src/main/assets/rem-textured.glb"
 
           test -s "$PROJECT_DIR/app/src/main/assets/rem-textured.glb"
-          echo "Model copied into Android assets"
+          echo "Rem model copied successfully"
 
       - name: Fix JVM targets
         shell: bash
@@ -83,6 +84,7 @@ jobs:
 
           text = gradle_file.read_text()
 
+          # Remove previous Java/Kotlin compiler target blocks.
           text = re.sub(
               r'(?m)^[ \t]*compileOptions\s*\{[^{}]*\}[ \t]*\n?',
               '',
@@ -94,50 +96,58 @@ jobs:
               text
           )
 
-          android_settings = '''
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-          '''
-
+          # Configure Java 17 inside android {}.
           match = re.search(r'\bandroid\s*\{', text)
           if not match:
               raise SystemExit("Could not find android { block")
 
+          java_settings = """
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          """
+
           text = (
               text[:match.end()]
               + "\n"
-              + android_settings
+              + java_settings
               + "\n"
               + text[match.end():]
           )
 
-          task_settings = '''
-
-          tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
-              sourceCompatibility = "17"
-              targetCompatibility = "17"
-          }
+          # Configure Kotlin 17.
+          text += """
 
           tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
               compilerOptions {
                   jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
               }
           }
-          '''
+          """
 
-          text += task_settings
+          # Force Java compilation tasks to target Java 17.
+          text += """
+
+          tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
+              sourceCompatibility = "17"
+              targetCompatibility = "17"
+          }
+          """
+
           gradle_file.write_text(text)
-
-          print("Java and Kotlin targets configured for JVM 17")
-          print(f"Patched file: {gradle_file}")
+          print("Java and Kotlin targets set to JVM 17")
+          print(f"Updated: {gradle_file}")
           PY
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
+      - name: Verify Java version
+        shell: bash
+        run: java -version
 
       - name: Build APK
         shell: bash
@@ -165,3 +175,4 @@ jobs:
           name: Rem-Android-APK
           path: Rem-Android-APK.apk
           if-no-files-found: error
+          
