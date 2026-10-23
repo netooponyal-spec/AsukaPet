@@ -19,26 +19,57 @@ public class OverlayService extends Service {
   if(!Settings.canDrawOverlays(this)){stopSelf();return;}
   wm=(WindowManager)getSystemService(WINDOW_SERVICE); pet=new Pet(this);
   int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
-  lp=new WindowManager.LayoutParams(150,190,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
+  lp=new WindowManager.LayoutParams(174,210,type,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,PixelFormat.TRANSLUCENT);
   lp.gravity=Gravity.TOP|Gravity.START; lp.x=20;lp.y=180;
   try{wm.addView(pet,lp);}catch(Exception e){stopSelf();}
  }
  public int onStartCommand(Intent i,int f,int id){return START_STICKY;}
  public void onDestroy(){if(wm!=null&&pet!=null)try{wm.removeView(pet);}catch(Exception e){} super.onDestroy();}
  public IBinder onBind(Intent i){return null;}
+
  class Pet extends View{
   Paint p=new Paint(3); float dx,dy,sx,sy; boolean drag; long started=System.currentTimeMillis(),down;
   Pet(Context c){super(c);}
-  protected void onDraw(Canvas c){float t=(System.currentTimeMillis()-started)/1000f,b=(float)Math.sin(t*2)*3,cx=getWidth()/2f,y=10+b;
-   p.setColor(0x55303040);c.drawOval(cx-42,165,cx+42,180,p);
-   p.setColor(Color.rgb(234,237,243));Path h=new Path();h.moveTo(cx-34,y+52);h.quadTo(cx-50,y+5,cx-8,y+7);h.quadTo(cx+30,y-2,cx+36,y+42);h.lineTo(cx+27,y+78);h.lineTo(cx-28,y+78);h.close();c.drawPath(h,p);
-   p.setColor(Color.rgb(245,218,198));c.drawOval(cx-25,y+35,cx+25,y+91,p);
-   p.setColor(Color.rgb(235,237,242));Path f=new Path();f.moveTo(cx-28,y+49);f.lineTo(cx-32,y+18);f.quadTo(cx,y-3,cx+29,y+20);f.lineTo(cx+13,y+47);f.lineTo(cx+3,y+35);f.lineTo(cx-9,y+51);f.lineTo(cx-17,y+37);f.close();c.drawPath(f,p);
-   p.setColor(Color.rgb(50,80,137));c.drawOval(cx-18,y+57,cx-5,y+72,p);c.drawOval(cx+5,y+57,cx+18,y+72,p);
-   p.setColor(Color.WHITE);c.drawCircle(cx-12,y+61,3,p);c.drawCircle(cx+12,y+61,3,p);
-   p.setColor(Color.rgb(246,246,250));Path body=new Path();body.moveTo(cx-20,y+91);body.lineTo(cx+20,y+91);body.lineTo(cx+34,y+146);body.lineTo(cx-34,y+146);body.close();c.drawPath(body,p);
-   p.setColor(Color.rgb(70,90,130));c.drawCircle(cx,y+107,6,p);p.setColor(Color.WHITE);p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(13);c.drawText("РЭМ",cx,y+160,p);
-   if(t%4.2f>3.98f){p.setColor(Color.rgb(245,218,198));c.drawRect(cx-20,y+57,cx-3,y+72,p);c.drawRect(cx+3,y+57,cx+20,y+72,p);p.setColor(Color.rgb(50,80,137));p.setStrokeWidth(2);c.drawLine(cx-17,y+65,cx-5,y+65,p);c.drawLine(cx+5,y+65,cx+17,y+65,p);}
+  void fill(Canvas c,int color,Path path){p.setColor(color);c.drawPath(path,p);}
+  protected void onDraw(Canvas c){
+   float t=(System.currentTimeMillis()-started)/1000f,b=(float)Math.sin(t*2)*2,cx=getWidth()/2f,y=7+b;
+   c.save(); c.scale(getWidth()/174f,getHeight()/210f);
+   // Soft shadow
+   p.setColor(0x44303040);c.drawOval(cx-42,190,cx+42,201,p);
+   // Blue hair behind head, long side locks
+   p.setColor(Color.rgb(70,190,232));
+   Path hair=new Path();hair.moveTo(cx-39,y+52);hair.quadTo(cx-52,y+12,cx-24,y+8);hair.quadTo(cx,y-1,cx+25,y+9);hair.quadTo(cx+48,y+20,cx+38,y+57);hair.lineTo(cx+34,y+119);hair.lineTo(cx+22,y+130);hair.lineTo(cx+18,y+82);hair.lineTo(cx-18,y+82);hair.lineTo(cx-25,y+130);hair.lineTo(cx-38,y+116);hair.close();fill(c,Color.rgb(64,183,226),hair);
+   // Face
+   p.setColor(Color.rgb(255,224,207));c.drawOval(cx-27,y+27,cx+27,y+84,p);
+   // White maid headband
+   p.setColor(Color.rgb(248,248,252));c.drawRoundRect(cx-29,y+17,cx+29,y+29,7,7,p);
+   p.setColor(Color.rgb(215,220,230));p.setStrokeWidth(2);c.drawLine(cx-23,y+22,cx+23,y+22,p);
+   // Fringe with blue locks
+   p.setColor(Color.rgb(70,190,232));Path fringe=new Path();fringe.moveTo(cx-29,y+40);fringe.lineTo(cx-31,y+16);fringe.quadTo(cx,y-2,cx+29,y+17);fringe.lineTo(cx+23,y+44);fringe.lineTo(cx+10,y+34);fringe.lineTo(cx+1,y+48);fringe.lineTo(cx-10,y+35);fringe.lineTo(cx-21,y+47);fringe.close();c.drawPath(fringe,p);
+   // Pink flower accessory on the right side
+   float fx=cx+27,fy=y+29;
+   p.setColor(Color.rgb(255,160,190));for(int k=0;k<5;k++){double a=k*Math.PI*2/5;c.drawCircle(fx+(float)Math.cos(a)*5,fy+(float)Math.sin(a)*5,4.5f,p);}
+   p.setColor(Color.rgb(255,221,105));c.drawCircle(fx,fy,3,p);
+   // Eyes and highlights
+   p.setColor(Color.rgb(48,92,143));c.drawOval(cx-19,y+48,cx-5,y+67,p);c.drawOval(cx+5,y+48,cx+19,y+67,p);
+   p.setColor(Color.WHITE);c.drawCircle(cx-13,y+52,3.2f,p);c.drawCircle(cx+11,y+52,3.2f,p);
+   p.setColor(Color.rgb(245,145,150));c.drawCircle(cx-24,y+68,3,p);c.drawCircle(cx+24,y+68,3,p);
+   p.setColor(Color.rgb(180,90,100));p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.6f);c.drawArc(cx-5,y+67,cx+6,y+75,10,160,false,p);p.setStyle(Paint.Style.FILL);
+   // Black-and-white maid dress
+   p.setColor(Color.rgb(40,43,57));Path dress=new Path();dress.moveTo(cx-19,y+82);dress.lineTo(cx+19,y+82);dress.lineTo(cx+35,y+151);dress.quadTo(cx,y+164,cx-35,y+151);dress.close();c.drawPath(dress,p);
+   // White apron
+   p.setColor(Color.rgb(250,250,252));Path apron=new Path();apron.moveTo(cx-12,y+91);apron.lineTo(cx+12,y+91);apron.lineTo(cx+25,y+147);apron.quadTo(cx,y+154,cx-25,y+147);apron.close();c.drawPath(apron,p);
+   // Puff sleeves
+   p.setColor(Color.rgb(248,248,252));c.drawCircle(cx-23,y+94,10,p);c.drawCircle(cx+23,y+94,10,p);
+   // Bow and collar
+   p.setColor(Color.rgb(65,180,225));Path bow=new Path();bow.moveTo(cx,y+89);bow.lineTo(cx-12,y+83);bow.lineTo(cx-10,y+96);bow.lineTo(cx,y+92);bow.lineTo(cx+10,y+96);bow.lineTo(cx+12,y+83);bow.close();c.drawPath(bow,p);
+   p.setColor(Color.rgb(255,255,255));c.drawCircle(cx,y+91,3,p);
+   // Legs and shoes
+   p.setColor(Color.rgb(255,224,207));c.drawRoundRect(cx-18,y+151,cx-5,y+174,5,5,p);c.drawRoundRect(cx+5,y+151,cx+18,y+174,5,5,p);
+   p.setColor(Color.rgb(35,38,49));c.drawRoundRect(cx-22,y+169,cx-3,y+180,5,5,p);c.drawRoundRect(cx+3,y+169,cx+22,y+180,5,5,p);
+   // Small blue hair clips; no floating name label
+   p.setColor(Color.rgb(245,245,250));c.drawCircle(cx-28,y+42,2,p);
+   c.restore();
    postInvalidateDelayed(40);
   }
   public boolean onTouchEvent(android.view.MotionEvent e){switch(e.getAction()){
