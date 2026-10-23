@@ -51,8 +51,14 @@ async function start(){
   const gltf=await new GLTFLoader().loadAsync(modelURL);
   const model=gltf.scene;scene.add(model);
   let meshCount=0;const meshes=[];
-  const maxAnisotropy=renderer.capabilities.getMaxAnisotropy();
-  model.traverse(object=>{if(object.isMesh){meshCount++;meshes.push(object);object.frustumCulled=false;if(object.material){const mats=Array.isArray(object.material)?object.material:[object.material];for(const m of mats){m.visible=true;m.side=THREE.DoubleSide;for(const key of ['map','emissiveMap','normalMap','roughnessMap','metalnessMap','aoMap','alphaMap']){const tex=m[key];if(tex&&tex.isTexture){tex.anisotropy=maxAnisotropy;if(key==='map'||key==='emissiveMap')tex.colorSpace=THREE.SRGBColorSpace;tex.generateMipmaps=true;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.magFilter=THREE.LinearFilter;tex.needsUpdate=true;}}m.needsUpdate=true;}}}});
+  model.traverse(object=>{
+   if(!object.isMesh)return;
+   meshCount++;
+   meshes.push(object);
+   object.frustumCulled=false;
+   // Keep GLB material and texture settings from the source file.
+   // Overriding color space, mipmaps and filters can break embedded textures.
+  });
   if(meshCount===0)throw new Error('GLB загружен, но внутри нет 3D-геометрии (Mesh).');
   report('Рэм загружается…','Найдено 3D-объектов: '+meshCount+'. Подгоняю камеру');
   model.updateMatrixWorld(true);
@@ -67,7 +73,7 @@ async function start(){
   report('Рэм загружена ✓','3D-модель готова • объектов: '+meshCount);
   setTimeout(()=>{status.style.display='none'},2500);
   window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight)});
-  function animate(){requestAnimationFrame(animate);model.rotation.y+=.003;renderer.clear();renderer.render(scene,camera)}
+  function animate(){requestAnimationFrame(animate);model.rotation.y+=.003;renderer.render(scene,camera)}
   animate();
  }catch(error){console.error('REM MODEL ERROR:',error);report('Ошибка 3D',''+(error&&error.message?error.message:String(error)))}
 }
