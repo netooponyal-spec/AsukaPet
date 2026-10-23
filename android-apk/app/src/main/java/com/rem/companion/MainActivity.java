@@ -2,6 +2,7 @@ package com.rem.companion;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -19,10 +20,14 @@ import android.widget.TextView;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.graphics.Color;
+import android.os.Handler;
 
 public class MainActivity extends Activity {
     private WebView webView;
     private static final int OVERLAY_REQUEST = 41;
+    private final Handler diagnosticHandler = new Handler();
+    private AlertDialog diagnosticDialog;
+    private TextView diagnosticText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +63,13 @@ public class MainActivity extends Activity {
         root.addView(start, new LinearLayout.LayoutParams(-1, -2));
         start.setOnClickListener(v -> enableOverlay());
 
+        Button overlayDiagnostics = new Button(this);
+        overlayDiagnostics.setText("Диагностика «поверх приложений»");
+        LinearLayout.LayoutParams odp = new LinearLayout.LayoutParams(-1, -2);
+        odp.topMargin = 10;
+        root.addView(overlayDiagnostics, odp);
+        overlayDiagnostics.setOnClickListener(v -> showOverlayDiagnostics());
+
         TextView diagnostics = new TextView(this);
         diagnostics.setText("ДИАГНОСТИКА 3D\\nПроверка перенесена сюда. Для проверки модели открой 3D-сцену в приложении. Если персонаж не виден, проверь интернет и пришли сюда текст ошибки.");
         diagnostics.setTextColor(Color.WHITE);
@@ -83,6 +95,55 @@ public class MainActivity extends Activity {
         site.setOnClickListener(v -> showWebsite());
 
         setContentView(root);
+    }
+
+    private void showOverlayDiagnostics() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(24, 8, 24, 4);
+
+        diagnosticText = new TextView(this);
+        diagnosticText.setTextColor(Color.WHITE);
+        diagnosticText.setTextSize(14);
+        diagnosticText.setTextIsSelectable(true);
+        diagnosticText.setGravity(Gravity.START);
+        box.addView(diagnosticText, new LinearLayout.LayoutParams(-1, -2));
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle("Поверх приложений — диагностика")
+                .setView(box)
+                .setNegativeButton("Закрыть", null)
+                .setNeutralButton("Открыть настройки", (d, w) -> {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                });
+        builder.setPositiveButton("Обновить", null);
+        diagnosticDialog = builder.create();
+        diagnosticDialog.setOnShowListener(d -> {
+            diagnosticDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> updateOverlayDiagnostics());
+            updateOverlayDiagnostics();
+        });
+        diagnosticDialog.setOnDismissListener(d -> {
+            diagnosticHandler.removeCallbacksAndMessages(null);
+            diagnosticDialog = null;
+            diagnosticText = null;
+        });
+        diagnosticDialog.show();
+        diagnosticHandler.postDelayed(new Runnable() {
+            @Override public void run() {
+                if (diagnosticDialog != null && diagnosticDialog.isShowing()) {
+                    updateOverlayDiagnostics();
+                    diagnosticHandler.postDelayed(this, 1000);
+                }
+            }
+        }, 1000);
+    }
+
+    private void updateOverlayDiagnostics() {
+        if (diagnosticText != null) {
+            diagnosticText.setText(OverlayService.getDiagnostics(this));
+        }
     }
 
     private void enableOverlay() {
