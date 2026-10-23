@@ -59,15 +59,6 @@ public class OverlayService extends Service {
   lp.gravity=Gravity.TOP|Gravity.START;lp.x=20;lp.y=160;
 
   overlayRoot.addView(pet,new android.widget.FrameLayout.LayoutParams(-1,-1));
-  TextView nativeStatus=new TextView(this);
-  nativeStatus.setText("Рэм: окно Android видно · проверяю 3D");
-  nativeStatus.setTextColor(android.graphics.Color.WHITE);
-  nativeStatus.setTextSize(12);
-  nativeStatus.setGravity(Gravity.CENTER);
-  nativeStatus.setBackgroundColor(0xCC202028);
-  android.widget.FrameLayout.LayoutParams statusParams=new android.widget.FrameLayout.LayoutParams(-1,-2,Gravity.TOP);
-  statusParams.setMargins(8,8,8,8);
-  overlayRoot.addView(nativeStatus,statusParams);
   pet.setOnTouchListener(new View.OnTouchListener(){
    float downX,downY,startX,startY;boolean moved;
    @Override public boolean onTouch(View v,MotionEvent e){
@@ -91,7 +82,7 @@ public class OverlayService extends Service {
 
  private String html(){
   return "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>"+
-   "<style>html,body,#v{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}#v{position:absolute;inset:0;background:rgba(20,20,28,.22)}#v canvas{position:absolute;inset:0;display:block;width:100%;height:100%;z-index:1}#s{position:fixed;left:4px;right:4px;top:38px;color:#fff;background:rgba(12,12,18,.94);border:1px solid rgba(255,255,255,.28);padding:8px;border-radius:7px;font:12px/1.4 monospace;text-align:left;white-space:pre-wrap;pointer-events:none;z-index:5;box-sizing:border-box}</style></head><body><div id='v'></div><div id='s'>ОТЛАДКА РЭМ\nСтатус: запускаю 3D…</div>"+
+   "<style>html,body,#v{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}#v{position:absolute;inset:0;background:rgba(20,20,28,.22)}#v canvas{position:absolute;inset:0;display:block;width:100%;height:100%;z-index:1}#s{display:none}</style></head><body><div id='v'></div><div id='s'>ОТЛАДКА РЭМ\nСтатус: запускаю 3D…</div>"+
    "<script type='module'>"+
    "const status=document.getElementById('s');const say=t=>status.textContent='ОТЛАДКА РЭМ\\n'+t;"+
    "window.addEventListener('error',e=>say('Ошибка JS: '+(e.message||'неизвестно')));"+
