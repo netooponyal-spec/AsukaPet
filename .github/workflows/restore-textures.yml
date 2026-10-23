@@ -75,6 +75,8 @@ jobs:
           mkdir -p public/models
           cp index.html public/index.html
           cp check-model.html public/check-model.html
+          cp manifest.json public/manifest.json
+          cp rem-icon.svg public/rem-icon.svg
           cp rem-textured.glb public/models/rem-textured.glb
           touch public/.nojekyll
 
