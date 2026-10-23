@@ -21,7 +21,7 @@ jobs:
             "https://github.com/netooponyal-spec/AsukaPet/releases/download/Ram/rem.glb" \
             -o rem.glb
 
-      - name: Attach character color texture
+      - name: Restore texture and remove background
         run: |
           npm init -y
           npm install @gltf-transform/core
@@ -34,32 +34,53 @@ jobs:
           const doc = await io.read('rem.glb');
           const root = doc.getRoot();
 
-          const image = fs.readFileSync('Rem_ALBShadowAlt.png');
+          const texturePath = 'Rem_ALBShadowAlt.png';
+
+          if (!fs.existsSync(texturePath)) {
+            throw new Error(`Texture file not found: ${texturePath}`);
+          }
+
+          const image = fs.readFileSync(texturePath);
 
           const texture = doc.createTexture('Rem_ALBShadowAlt')
             .setImage(image)
             .setMimeType('image/png');
 
-          let count = 0;
+          const material = root.listMaterials().find(
+            m => m.getName().toLowerCase() === 'm_rem'
+          );
 
-          for (const material of root.listMaterials()) {
-            const name = material.getName().toLowerCase();
+          if (!material) {
+            throw new Error('Material M_Rem was not found.');
+          }
 
-            console.log('Material:', material.getName());
+          material
+            .setBaseColorTexture(texture)
+            .setBaseColorFactor([1, 1, 1, 1]);
 
-            if (name.includes('rem') && !name.includes('outline')) {
-              material
-                .setBaseColorTexture(texture)
-                .setBaseColorFactor([1, 1, 1, 1]);
+          console.log('Texture attached to:', material.getName());
 
-              count++;
-              console.log('Texture attached:', material.getName());
+          let removed = 0;
+
+          for (const node of [...root.listNodes()]) {
+            if (/^Bg\b/i.test(node.getName().trim())) {
+              console.log('Removing background node:', node.getName());
+              node.dispose();
+              removed++;
             }
           }
 
-          if (count === 0) {
-            throw new Error(
-              'No matching Rem material found. Check the material names above.'
+          console.log('Background nodes removed:', removed);
+
+          const scenes = root.listScenes();
+
+          for (const scene of scenes) {
+            const nodes = scene.listChildren();
+            console.log(
+              'Scene:',
+              scene.getName(),
+              '| root nodes:',
+              nodes.length
             );
           }
 
@@ -69,10 +90,13 @@ jobs:
 
           node restore.mjs
 
+      - name: Inspect output model
+        run: |
+          npx --yes @gltf-transform/cli inspect rem-textured.glb
+
       - name: Upload textured model
         uses: actions/upload-artifact@v4
         with:
           name: rem-textured
           path: rem-textured.glb
           compression-level: 0
-          
