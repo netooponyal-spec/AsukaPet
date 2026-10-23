@@ -37,6 +37,42 @@ jobs:
           const doc = await io.read('rem.glb');
           const root = doc.getRoot();
 
+          console.log('=== REM GLB DIAGNOSTIC ===');
+          console.log('Nodes:', root.listNodes().length);
+          console.log('Meshes:', root.listMeshes().length);
+          console.log('Materials:', root.listMaterials().length);
+          console.log('Textures:', root.listTextures().length);
+          console.log('Images:', root.listImages().length);
+
+          for (const material of root.listMaterials()) {
+            const base = material.getBaseColorTexture();
+            const normal = material.getNormalTexture();
+            const occ = material.getOcclusionTexture();
+            console.log('MATERIAL', JSON.stringify({
+              name: material.getName(),
+              baseColorTexture: base ? base.getName() : null,
+              normalTexture: normal ? normal.getName() : null,
+              occlusionTexture: occ ? occ.getName() : null,
+              metallic: material.getMetallicFactor(),
+              roughness: material.getRoughnessFactor()
+            }));
+          }
+
+          for (const node of root.listNodes()) {
+            const mesh = node.getMesh();
+            if (!mesh) continue;
+            const primitiveInfo = mesh.listPrimitives().map(p => {
+              const m = p.getMaterial();
+              return {
+                material: m ? m.getName() : null,
+                mode: p.getMode(),
+                attributes: p.listAttributes().map(a => a.getName())
+              };
+            });
+            console.log('NODE', JSON.stringify({name: node.getName(), mesh: mesh.getName(), primitives: primitiveInfo}));
+          }
+          console.log('=== END REM GLB DIAGNOSTIC ===');
+
           const texturePath = 'Rem_ALBShadowAlt.png';
 
           if (!fs.existsSync(texturePath)) {
