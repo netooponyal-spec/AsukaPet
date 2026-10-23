@@ -23,29 +23,84 @@ jobs:
           java-version: '17'
 
       - name: Extract Android project
+        shell: bash
         run: |
           mkdir -p android-app
           unzip -o AsukaPet-Android-AI-Starter.zip -d android-app
 
       - name: Find project directory
+        shell: bash
         run: |
-          echo "Looking for Gradle project..."
-          find android-app -maxdepth 6 -type f \
-            \( -name settings.gradle -o -name settings.gradle.kts \) -print
-
-          SETTINGS_FILE=$(find android-app -maxdepth 6 -type f \
+          SETTINGS_FILE=$(find android-app -maxdepth 8 -type f \
             \( -name settings.gradle -o -name settings.gradle.kts \) \
             -print -quit)
 
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "::error::Gradle settings file not found in ZIP"
-            find android-app -maxdepth 4 -type f | head -100
+            echo "::error::Gradle settings file not found"
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Found project: $PROJECT_DIR"
+          echo "Project found: $PROJECT_DIR"
+
+      - name: Align Java and Kotlin JVM targets
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          project = Path(os.environ["PROJECT_DIR"])
+          gradle_file = project / "app" / "build.gradle.kts"
+          text = gradle_file.read_text()
+
+          text = re.sub(
+              r'(?m)^[ \t]*compileOptions\s*\{[^{}]*\}[ \t]*\n?',
+              '',
+              text
+          )
+          text = re.sub(
+              r'(?m)^[ \t]*kotlinOptions\s*\{[^{}]*\}[ \t]*\n?',
+              '',
+              text
+          )
+
+          android_match = re.search(r'\bandroid\s*\{', text)
+          if not android_match:
+              raise SystemExit("Could not find android block")
+
+          java_config = """
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_1_8
+                  targetCompatibility = JavaVersion.VERSION_1_8
+              }
+          """
+
+          text = (
+              text[:android_match.end()]
+              + "\n"
+              + java_config
+              + "\n"
+              + text[android_match.end():]
+          )
+
+          kotlin_config = """
+
+          tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+              compilerOptions {
+                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+              }
+          }
+          """
+
+          text += kotlin_config
+          gradle_file.write_text(text)
+
+          print("Java and Kotlin targets aligned to JVM 1.8")
+          print(gradle_file.read_text())
+          PY
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -53,23 +108,28 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build APK
-        run: gradle -p "$PROJECT_DIR" assembleDebug
+        shell: bash
+        run: |
+          gradle -p "$PROJECT_DIR" assembleDebug
 
-      - name: Prepare APK
+      - name: Find APK
+        shell: bash
         run: |
           APK=$(find "$PROJECT_DIR" -type f \
-            -path '*/outputs/apk/debug/app-debug.apk' -print -quit)
+            -path '*/outputs/apk/debug/app-debug.apk' \
+            -print -quit)
 
           if [ -z "$APK" ]; then
-            echo "::error::APK was not produced"
+            echo "::error::APK file was not produced"
             exit 1
           fi
 
           cp "$APK" Rem-Android-APK.apk
+          echo "APK created successfully"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Rem-Android-APK
           path: Rem-Android-APK.apk
-          
+          if-no-files-found: error
