@@ -34,41 +34,23 @@ jobs:
           SETTINGS_FILE=$(find android-app -maxdepth 8 -type f \
             \( -name settings.gradle -o -name settings.gradle.kts \) \
             -print -quit)
-
           if [ -z "$SETTINGS_FILE" ]; then
             echo "::error::Gradle settings file not found"
-            find android-app -maxdepth 5 -type f | head -100
             exit 1
           fi
-
           PROJECT_DIR=$(dirname "$SETTINGS_FILE")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project found: $PROJECT_DIR"
 
-      - name: Download Rem 3D model
-        shell: bash
-        run: |
-          mkdir -p android-app/assets
-
-          curl -fL --retry 3 \
-            "https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-textured1/rem-textured.glb" \
-            -o android-app/assets/rem-textured.glb
-
-          test -s android-app/assets/rem-textured.glb
-          ls -lh android-app/assets/rem-textured.glb
-
-      - name: Install model into Android assets
+      - name: Download Rem model
         shell: bash
         run: |
           mkdir -p "$PROJECT_DIR/app/src/main/assets"
-
-          cp android-app/assets/rem-textured.glb \
-            "$PROJECT_DIR/app/src/main/assets/rem-textured.glb"
-
+          curl -fL --retry 3 \
+            "https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-textured1/rem-textured.glb" \
+            -o "$PROJECT_DIR/app/src/main/assets/rem-textured.glb"
           test -s "$PROJECT_DIR/app/src/main/assets/rem-textured.glb"
-          echo "Rem model copied successfully"
 
-      - name: Fix JVM targets
+      - name: Configure SceneView and JVM
         shell: bash
         run: |
           python3 - <<'PY'
@@ -78,13 +60,16 @@ jobs:
 
           project = Path(os.environ["PROJECT_DIR"])
           gradle_file = project / "app" / "build.gradle.kts"
-
-          if not gradle_file.exists():
-              raise SystemExit(f"Gradle file not found: {gradle_file}")
-
           text = gradle_file.read_text()
 
-          # Remove previous Java/Kotlin compiler target blocks.
+          if 'io.github.sceneview:sceneview:2.3.0' not in text:
+              text += '''
+
+          dependencies {
+              implementation("io.github.sceneview:sceneview:2.3.0")
+          }
+          '''
+
           text = re.sub(
               r'(?m)^[ \t]*compileOptions\s*\{[^{}]*\}[ \t]*\n?',
               '',
@@ -96,48 +81,49 @@ jobs:
               text
           )
 
-          # Configure Java 17 inside android {}.
           match = re.search(r'\bandroid\s*\{', text)
           if not match:
-              raise SystemExit("Could not find android { block")
-
-          java_settings = """
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-          """
+              raise SystemExit("android block not found")
 
           text = (
               text[:match.end()]
-              + "\n"
-              + java_settings
-              + "\n"
+              + '''
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_1_8
+                  targetCompatibility = JavaVersion.VERSION_1_8
+              }
+          '''
               + text[match.end():]
           )
 
-          # Configure Kotlin 17.
-          text += """
+          text += '''
 
           tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
               compilerOptions {
-                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+                  jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
               }
           }
-          """
-
-          # Force Java compilation tasks to target Java 17.
-          text += """
-
-          tasks.withType<org.gradle.api.tasks.compile.JavaCompile>().configureEach {
-              sourceCompatibility = "17"
-              targetCompatibility = "17"
-          }
-          """
+          '''
 
           gradle_file.write_text(text)
-          print("Java and Kotlin targets set to JVM 17")
-          print(f"Updated: {gradle_file}")
+
+          manifest = project / "app/src/main/AndroidManifest.xml"
+          if manifest.exists():
+              xml = manifest.read_text()
+              xml = xml.replace('android:label="Asuka Pet"', 'android:label="Rem Pet"')
+              manifest.write_text(xml)
+
+          main = project / "app/src/main/java/com/example/asukapet/MainActivity.kt"
+          if main.exists():
+              src = main.read_text()
+              src = src.replace("Аска — экранный ассистент", "Рем — экранный ассистент")
+              src = src.replace("Включить Аску", "Включить Рем")
+              src = src.replace("Убрать Аску", "Убрать Рем")
+              src = src.replace("enableAsuka", "enableRem")
+              src = src.replace("Аска появилась на экране", "Рем появилась на экране")
+              main.write_text(src)
+
+          print("SceneView dependency, JVM 1.8 and Rem label configured")
           PY
 
       - name: Set up Gradle
@@ -145,29 +131,20 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Verify Java version
-        shell: bash
-        run: java -version
-
       - name: Build APK
         shell: bash
-        run: |
-          gradle -p "$PROJECT_DIR" assembleDebug
+        run: gradle -p "$PROJECT_DIR" assembleDebug
 
       - name: Find APK
         shell: bash
         run: |
           APK=$(find "$PROJECT_DIR" -type f \
-            -path '*/outputs/apk/debug/app-debug.apk' \
-            -print -quit)
-
+            -path '*/outputs/apk/debug/app-debug.apk' -print -quit)
           if [ -z "$APK" ]; then
             echo "::error::APK file was not produced"
             exit 1
           fi
-
           cp "$APK" Rem-Android-APK.apk
-          echo "APK created successfully"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -175,4 +152,3 @@ jobs:
           name: Rem-Android-APK
           path: Rem-Android-APK.apk
           if-no-files-found: error
-          
