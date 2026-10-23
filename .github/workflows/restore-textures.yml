@@ -1,4 +1,4 @@
-
+```yaml
 name: Restore Rem Textures
 
 on:
@@ -68,7 +68,12 @@ jobs:
           EOF
 
           node restore.mjs
+
+      - name: Prepare website
+        run: |
           mkdir -p public/models
+          cp index.html public/index.html
+          cp check-model.html public/check-model.html
           cp rem-textured.glb public/models/rem-textured.glb
           touch public/.nojekyll
 
@@ -79,3 +84,4 @@ jobs:
 
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
+```
