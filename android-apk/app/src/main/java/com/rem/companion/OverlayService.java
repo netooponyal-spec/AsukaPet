@@ -35,10 +35,19 @@ public class OverlayService extends Service {
   s.setLoadsImagesAutomatically(true);
   s.setAllowFileAccess(false);
   s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-  pet.setWebChromeClient(new WebChromeClient());
+  pet.setWebChromeClient(new WebChromeClient(){
+   @Override public boolean onConsoleMessage(ConsoleMessage m){
+    android.util.Log.e("Rem3D","JS "+m.message()+" ("+m.sourceId()+":"+m.lineNumber()+")");
+    return true;
+   }
+  });
   pet.setWebViewClient(new WebViewClient(){
    @Override public void onReceivedError(WebView view,WebResourceRequest req,WebResourceError err){
-    if(req.isForMainFrame())Toast.makeText(OverlayService.this,"Не удалось открыть 3D-сцену. Проверь интернет.",Toast.LENGTH_LONG).show();
+    android.util.Log.e("Rem3D","Web error "+req.getUrl()+" : "+err.getDescription());
+    if(req.isForMainFrame())Toast.makeText(OverlayService.this,"Ошибка 3D-сцены: "+err.getDescription(),Toast.LENGTH_LONG).show();
+   }
+   @Override public void onReceivedHttpError(WebView view,WebResourceRequest req,WebResourceResponse res){
+    android.util.Log.e("Rem3D","HTTP "+res.getStatusCode()+" "+req.getUrl());
    }
   });
   int type=Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE;
@@ -67,13 +76,18 @@ public class OverlayService extends Service {
  }
 
  private String html(){
-  return "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>"+
-   "<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}model-viewer{width:100%;height:100%;background:transparent;--poster-color:transparent;outline:none}</style>"+
-   "<script type='module' src='https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js'></script></head><body>"+
-   "<model-viewer src='https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-textured1/rem-textured.glb' alt='Rem 3D model' "+
-   "camera-orbit='0deg 75deg 2.4m' field-of-view='30deg' camera-target='0m 0.9m 0m' auto-rotate auto-rotate-delay='0' "+
-   "rotation-per-second='12deg' interaction-prompt='none' shadow-intensity='0.6' exposure='1' loading='eager'></model-viewer>"+
-   "</body></html>";
+  return "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>"+
+   "<style>html,body,#v{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}#s{position:fixed;left:4px;right:4px;bottom:4px;color:#fff;background:#222d;padding:5px;border-radius:6px;font:11px sans-serif;text-align:center;pointer-events:none}</style></head><body><div id='v'></div><div id='s'>Запускаю 3D…</div>"+
+   "<script type='module'>"+
+   "const status=document.getElementById('s');const say=t=>status.textContent=t;"+
+   "window.addEventListener('error',e=>say('Ошибка JS: '+(e.message||'неизвестно')));"+
+   "window.addEventListener('unhandledrejection',e=>say('Ошибка загрузки: '+String(e.reason).slice(0,120)));"+
+   "async function run(){try{say('Загружаю 3D-движок…');const THREE=await import('https://esm.sh/three@0.170.0');const {GLTFLoader}=await import('https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js');"+
+   "const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(35,innerWidth/innerHeight,0.001,10000);const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setSize(innerWidth,innerHeight);renderer.setClearColor(0,0);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;document.getElementById('v').appendChild(renderer.domElement);"+
+   "scene.add(new THREE.HemisphereLight(0xffffff,0x666677,2));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(4,7,6);scene.add(light);const fill=new THREE.DirectionalLight(0x9fd8ff,1.5);fill.position.set(-4,3,-4);scene.add(fill);"+
+   "say('Загружаю модель Рэм (около 110 МБ)…');const url='https://github.com/netooponyal-spec/AsukaPet/releases/download/Rem-textured1/rem-textured.glb';const gltf=await new GLTFLoader().loadAsync(url,undefined,e=>{if(e.total)say('Загружаю модель: '+Math.round(e.loaded/e.total*100)+'%');});const model=gltf.scene;scene.add(model);let count=0;const box=new THREE.Box3().setFromObject(model);model.traverse(o=>{if(o.isMesh){count++;o.frustumCulled=false;if(o.geometry&&!o.geometry.boundingBox)o.geometry.computeBoundingBox();}});if(!count||box.isEmpty())throw new Error('GLB загружен, но 3D-геометрия не найдена');const size=box.getSize(new THREE.Vector3());const center=box.getCenter(new THREE.Vector3());const max=Math.max(size.x,size.y,size.z);model.position.sub(center);model.scale.setScalar(3/max);camera.position.set(0,0.75,3/2/Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*1.35);camera.lookAt(0,0.45,0);say('Рэм загружена ✓');setTimeout(()=>status.style.display='none',2500);"+
+   "addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});function animate(){requestAnimationFrame(animate);model.rotation.y+=0.003;renderer.render(scene,camera)}animate();"+
+   "}catch(e){say('3D не загрузилась: '+(e&&e.message?e.message:String(e)).slice(0,160));console.error('Rem 3D error',e)}}run();</script></body></html>";
  }
 
  @Override public int onStartCommand(Intent i,int f,int id){return START_STICKY;}
