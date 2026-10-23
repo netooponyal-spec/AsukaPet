@@ -1,30 +1,44 @@
-
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Rem Pet</title>
-  <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: #171923;
-      color: white;
-      font: 18px system-ui, sans-serif;
-      text-align: center;
-    }
-    main { padding: 24px; }
-    a { color: #8ecbff; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101018">
+<title>Рэм — виртуальный компаньон</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101018;color:#fff;font:16px system-ui,sans-serif}
+#model{position:fixed;inset:0;width:100%;height:100%;border:0}
+.panel{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;pointer-events:none}
+button,a{pointer-events:auto;border:1px solid #ffffff2c;border-radius:999px;padding:13px 18px;font:600 15px system-ui;text-decoration:none;color:white;background:#262536eF}
+button#talk{background:#c84d83;border-color:#ef8db6;min-width:150px}
+#status{position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;right:12px;text-align:center;padding:10px 14px;background:#14131dcc;border:1px solid #ffffff20;border-radius:14px;font-size:14px;backdrop-filter:blur(10px)}
+#status small{display:block;color:#d5cbd5;margin-top:3px;font-weight:400}
+</style>
 </head>
 <body>
-  <main>
-    <h1>Rem Pet</h1>
-    <p>Проверка GitHub Pages: сайт работает.</p>
-    <p><a href="./check-model.html">Открыть проверку 3D-модели</a></p>
-  </main>
+<iframe id="model" title="3D-модель Рэм" src="./check-model.html" allow="autoplay"></iframe>
+<div id="status">Рэм загружается…<small id="detail">Проверяю 3D-сцену</small></div>
+<div class="panel">
+<button id="talk">🎙️ Поговорить</button>
+<button id="stop">■ Стоп</button>
+<a href="./check-model.html">3D отдельно</a>
+</div>
+<script>
+const status=document.querySelector('#status'),detail=document.querySelector('#detail'),talk=document.querySelector('#talk'),stop=document.querySelector('#stop');
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recognition=null;
+function sayStatus(main,sub=''){status.firstChild.textContent=main;detail.textContent=sub}
+if(SR){
+ recognition=new SR();recognition.lang='ru-RU';recognition.interimResults=false;recognition.maxAlternatives=1;
+ recognition.onstart=()=>sayStatus('Рэм слушает…','Скажи фразу после сигнала браузера');
+ recognition.onresult=e=>{const said=e.results[0][0].transcript;sayStatus('Я услышала: «'+said+'»','Голосовой ввод работает. ИИ-ответ пока не подключён.');};
+ recognition.onerror=e=>sayStatus('Не удалось распознать речь',e.error==='not-allowed'?'Разреши доступ к микрофону в браузере':e.error);
+ recognition.onend=()=>{talk.disabled=false;talk.textContent='🎙️ Поговорить'};
+}else{talk.disabled=true;talk.textContent='Голосовой ввод недоступен';sayStatus('Рэм готовится…','Для голосового ввода нужен браузер с поддержкой распознавания речи.')}
+talk.addEventListener('click',()=>{if(!recognition)return;try{talk.disabled=true;recognition.start()}catch(e){talk.disabled=false;sayStatus('Микрофон занят','Нажми «Поговорить» ещё раз через секунду')}});
+stop.addEventListener('click',()=>{if(recognition)recognition.stop();speechSynthesis.cancel();talk.disabled=false;talk.textContent='🎙️ Поговорить';sayStatus('Остановлено','Нажми «Поговорить», чтобы начать снова')});
+window.addEventListener('message',e=>{if(e.data&&typeof e.data==='string'&&e.data.startsWith('MODEL_STATUS:'))sayStatus(e.data.slice(13),'3D-модель Рэм')});
+sayStatus('Рэм загружается…','3D-модель и голосовой ввод');
+</script>
 </body>
 </html>
